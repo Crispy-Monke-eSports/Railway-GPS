@@ -25,6 +25,7 @@ public final class RailwayWorldOverlay {
 	private static final int TRACK_COLOR = 0xD94DB7E5;
 	private static final int ACTIVE_COLOR = 0xFF35B9F3;
 	private static boolean enabled;
+	private static ZoneBox selectionPreview;
 
 	private RailwayWorldOverlay() { }
 
@@ -41,6 +42,10 @@ public final class RailwayWorldOverlay {
 		return enabled;
 	}
 
+	public static void setSelectionPreview(ZoneBox preview) {
+		selectionPreview = preview;
+	}
+
 	private static void render(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context) {
 		Minecraft client = Minecraft.getInstance();
 		if (!enabled || client.level == null || context.levelState().cameraRenderState.pos == null) return;
@@ -53,6 +58,9 @@ public final class RailwayWorldOverlay {
 				.forEach(point -> point.zone().boxes().stream()
 						.filter(box -> near(camera, box))
 						.forEach(box -> addBox(lines, box, ZONE_COLOR)));
+		if (selectionPreview != null && near(camera, selectionPreview)) {
+			addBox(lines, selectionPreview, 0xFFF2C94C);
+		}
 
 		Set<String> activeTracks = new HashSet<>();
 		ClientNavigator.activePlan().ifPresent(plan -> plan.legs().forEach(leg -> activeTracks.add(leg.track().id())));

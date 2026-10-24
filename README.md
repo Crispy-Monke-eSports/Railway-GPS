@@ -16,6 +16,7 @@ The mod currently provides:
 - Shortest-path navigation over verified tracks and permitted transitions.
 - A minecart HUD with automatic straight/left/right/turn-back guidance and custom instructions.
 - Optional JourneyMap overlays for control zones, physical tracks, names and the active route.
+- A `B`-key in-world editor for click-selecting control-point bounding boxes with a live outline and action HUD.
 
 There is one network implementation and one authoritative data file:
 
@@ -32,7 +33,8 @@ All editing commands require operator permissions.
 
 ### Control-point bounding boxes
 
-Stand at two opposite block corners of the inclusive 3D zone, then create the control point:
+Press `B`, then left-click and right-click the two opposite block corners of the inclusive 3D zone. The
+selection is rendered in the world while editing. Then create the control point:
 
 ```mcfunction
 /rgps zone first
@@ -45,17 +47,21 @@ prevents rapid enter/leave flicker at the boundary.
 
 ### Physical tracks and double track
 
-Start inside the source zone while riding a minecart, drive to the destination zone, and finish explicitly:
+Start inside any registered control-point zone while riding a minecart, drive through one or more other
+control points, and finish inside the final zone:
 
 ```mcfunction
-/rgps survey start <from_control_point> <to_control_point> <track_id>
+/rgps survey start
 /rgps survey status
 /rgps survey finish
 /rgps survey cancel
 ```
 
-Record each usable direction separately. Rails between the same two control points automatically share a
-section. Pair opposite directional rails when they represent the two sides of the same railway:
+Railway GPS detects the visited control points, splits the journey into physical tracks, assigns opaque
+track IDs, and registers the exact transitions observed during the journey. Record each usable direction
+separately. Rails between the same two control points automatically share a section. When there is exactly
+one unpaired rail in the opposite direction it is paired automatically. Ambiguous cases can be resolved
+explicitly:
 
 ```mcfunction
 /rgps track pair <first_track> <opposite_track>

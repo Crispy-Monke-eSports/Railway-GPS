@@ -12,9 +12,30 @@ import se.railwaygps.railway.model.ZoneBox;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RailwayNetworkEditorTest {
+	@Test
+	void generatesOpaqueTrackIdentity() throws Exception {
+		RailwayNetworkEditor.AddedTrack added = RailwayNetworkEditor.addRecordedTrack(withControlPoints(),
+				"west", "east", "minecraft:overworld", List.of(point(2, 64, 0), point(8, 64, 0)));
+
+		assertTrue(added.trackId().startsWith("track-"));
+		assertTrue(added.network().tracks().containsKey(added.trackId()));
+	}
+
+	@Test
+	void automaticallyPairsAnUnambiguousOppositeTrack() throws Exception {
+		RailwayNetworkEditor.AddedTrack eastbound = RailwayNetworkEditor.addRecordedTrack(withControlPoints(),
+				"west", "east", "minecraft:overworld", List.of(point(2, 64, 0), point(8, 64, 0)));
+		RailwayNetworkEditor.AddedTrack westbound = RailwayNetworkEditor.addRecordedTrack(eastbound.network(),
+				"east", "west", "minecraft:overworld", List.of(point(8, 64, 2), point(2, 64, 2)));
+
+		assertEquals(westbound.trackId(), westbound.network().tracks().get(eastbound.trackId()).pairedTrackId());
+		assertEquals(eastbound.trackId(), westbound.network().tracks().get(westbound.trackId()).pairedTrackId());
+	}
+
 	@Test
 	void recordsOppositeRailsInOneSectionAndPairsThem() throws Exception {
 		RailwayNetwork network = withControlPoints();

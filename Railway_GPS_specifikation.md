@@ -376,7 +376,7 @@ En inspelning får vara lång och passera flera kontrollpunkter. Administratöre
 /rgps survey finish
 ```
 
-Efter `finish` skapas ett visuellt utkast. Moddet:
+Efter `finish` analyserar moddet den inspelade färden:
 
 1. matchar färden mot kända kontrollzoner;
 2. delar geometrin vid zonernas in- och utpassager;
@@ -385,7 +385,11 @@ Efter `finish` skapas ett visuellt utkast. Moddet:
 5. föreslår parning med närliggande motriktat spår;
 6. visar konflikter eller osäkerheter.
 
-Administratören granskar sedan förslaget innan det publiceras:
+Tekniska spår-ID:n skapas av moddet och ska normalt inte efterfrågas i gränssnittet. En enda inspelning får
+skapa flera spårdelar och de observerade övergångarna mellan dem. Den nuvarande testimplementationen sparar
+resultatet atomiskt vid `finish`; granskningsutkast och separat bekräftelse är ett senare gränssnittslager.
+
+Det planerade granskningsflödet är:
 
 ```mcfunction
 /rgps survey confirm
@@ -675,6 +679,11 @@ När ett objekt väljs ska det kunna:
 
 ### 12.4 Visuell inspelning och redigering
 
+Redigeringsläget öppnas med en konfigurerbar tangent (`B` som standard). Verktyget visar aktuella
+musåtgärder och vald geometri i en HUD, i samma anda som verktygspaletten i SimpleBlueprints. För
+kontrollzoner väljer vänsterklick första hörnet och högerklick andra hörnet; en tredimensionell kontur visas
+omedelbart. Servern kontrollerar fortfarande behörighet och äger den sparade modellen.
+
 Under inspelning visas geometrin live. Inträde och utträde ur kontrollzoner markeras. Föreslagna delningar, portar och spårpar visas innan administratören bekräftar dem.
 
 Vid punktbaserad namngivning ska startpunkt, slutpunkt, eventuella mellanpunkter och hela den beräknade spårvägen visas. Om flera kandidater finns ska användaren kunna växla mellan dem innan bekräftelse. Vald riktning, partiella ändintervall och automatiskt inkluderade parallella spår ska gå att särskilja visuellt.
@@ -834,6 +843,9 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 - Stabil map matching mellan parallella spår.
 - Omplanering och osäkerhetsläge.
 - Automatiska och manuella instruktioner.
+- Startinstruktionen beräknas från den fysiska inkommande och utgående rälsen i kontrollzonen. Spelarens
+  kamerariktning får aldrig användas för att avgöra vänster eller höger; saknas säker rälsmatchning visas en
+  neutral fortsätt-instruktion.
 - Lokaliserad HUD.
 
 ### Fas 8 – JourneyMap och administrationspolering

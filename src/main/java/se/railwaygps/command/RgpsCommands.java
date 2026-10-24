@@ -10,6 +10,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
+import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
@@ -45,8 +46,10 @@ public final class RgpsCommands {
 				.requires(source -> source.permissions().hasPermission(Permissions.COMMANDS_MODERATOR));
 		root.then(Commands.literal("network").then(Commands.literal("list").executes(RgpsCommands::listNetwork)));
 		root.then(Commands.literal("zone")
-				.then(Commands.literal("first").executes(RgpsCommands::markZoneFirst))
-				.then(Commands.literal("second").executes(RgpsCommands::markZoneSecond))
+				.then(Commands.literal("first").executes(RgpsCommands::markZoneFirst)
+						.then(Commands.argument("position", BlockPosArgument.blockPos()).executes(RgpsCommands::markZoneFirst)))
+				.then(Commands.literal("second").executes(RgpsCommands::markZoneSecond)
+						.then(Commands.argument("position", BlockPosArgument.blockPos()).executes(RgpsCommands::markZoneSecond)))
 				.then(Commands.literal("cancel").executes(RgpsCommands::cancelZoneSelection)));
 		root.then(Commands.literal("control").then(Commands.literal("create")
 				.then(Commands.argument("id", StringArgumentType.word())
@@ -54,10 +57,7 @@ public final class RgpsCommands {
 								.then(Commands.argument("name", StringArgumentType.greedyString())
 										.executes(RgpsCommands::createControlPoint))))));
 		root.then(Commands.literal("survey")
-				.then(Commands.literal("start").then(Commands.argument("from", StringArgumentType.word())
-						.then(Commands.argument("to", StringArgumentType.word())
-								.then(Commands.argument("track_id", StringArgumentType.word())
-										.executes(RgpsCommands::startSurvey)))))
+				.then(Commands.literal("start").executes(RgpsCommands::startSurvey))
 				.then(Commands.literal("finish").executes(RgpsCommands::finishSurvey))
 				.then(Commands.literal("status").executes(RgpsCommands::surveyStatus))
 				.then(Commands.literal("cancel").executes(RgpsCommands::cancelSurvey)));
@@ -114,8 +114,11 @@ public final class RgpsCommands {
 
 	private static int markZoneFirst(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		CommandSourceStack source = context.getSource();
+		ServerPlayer player = source.getPlayerOrException();
+		BlockPos position = argumentPresent(context, "position")
+				? BlockPosArgument.getLoadedBlockPos(context, "position") : player.blockPosition();
 		ZoneSelectionManager.Selection selection = RailwayGpsServer.get(source.getServer()).zoneSelections()
-				.markFirst(source.getPlayerOrException());
+				.markFirst(player, position);
 		source.sendSuccess(() -> Component.literal("First zone corner selected at " + format(selection.first())), false);
 		return Command.SINGLE_SUCCESS;
 	}
@@ -123,8 +126,11 @@ public final class RgpsCommands {
 	private static int markZoneSecond(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		CommandSourceStack source = context.getSource();
 		try {
+			ServerPlayer player = source.getPlayerOrException();
+			BlockPos position = argumentPresent(context, "position")
+					? BlockPosArgument.getLoadedBlockPos(context, "position") : player.blockPosition();
 			ZoneSelectionManager.Selection selection = RailwayGpsServer.get(source.getServer()).zoneSelections()
-					.markSecond(source.getPlayerOrException());
+					.markSecond(player, position);
 			source.sendSuccess(() -> Component.literal("Second zone corner selected at " + format(selection.second())), false);
 			return Command.SINGLE_SUCCESS;
 		} catch (IllegalStateException exception) {
@@ -166,13 +172,10 @@ public final class RgpsCommands {
 	private static int startSurvey(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
 		CommandSourceStack source = context.getSource();
 		try {
-			String from = StringArgumentType.getString(context, "from");
-			String to = StringArgumentType.getString(context, "to");
-			String trackId = StringArgumentType.getString(context, "track_id");
-			RailwayGpsServer.get(source.getServer()).surveys().start(source.getPlayerOrException(), from, to,
-					trackId, source.getServer().getTickCount());
-			source.sendSuccess(() -> Component.literal("Surveying physical track '" + trackId + "' from '"
-					+ from + "' to '" + to + "'. Stay in this minecart."), true);
+			RailwayGpsServer.get(source.getServer()).surveys().start(source.getPlayerOrException(),
+					source.getServer().getTickCount());
+			source.sendSuccess(() -> Component.literal("Survey started. Drive through any number of control points; "
+					+ "track identities and transitions will be created automatically."), true);
 			return Command.SINGLE_SUCCESS;
 		} catch (RecordingException exception) {
 			return fail(source, exception.getMessage());
@@ -185,8 +188,9 @@ public final class RgpsCommands {
 			SurveyManager.FinishedSurvey finished = RailwayGpsServer.get(source.getServer()).surveys()
 					.finish(source.getPlayerOrException());
 			source.sendSuccess(() -> Component.literal(
-					"Saved physical track '%s': %.1f blocks, %d recorded points, %d simplified points".formatted(
-							finished.trackId(), finished.length(), finished.rawPointCount(), finished.simplifiedPointCount())), true);
+					"Saved %d physical track(s) through %s: %.1f blocks, %d recorded points, %d simplified points".formatted(
+							finished.trackIds().size(), String.join(" -> ", finished.controlPoints()), finished.length(),
+							finished.rawPointCount(), finished.simplifiedPointCount())), true);
 			return Command.SINGLE_SUCCESS;
 		} catch (RecordingException exception) {
 			return fail(source, exception.getMessage());
@@ -199,8 +203,9 @@ public final class RgpsCommands {
 			SurveyManager.Status status = RailwayGpsServer.get(source.getServer()).surveys()
 					.status(source.getPlayerOrException(), source.getServer().getTickCount());
 			source.sendSuccess(() -> Component.literal(
-					"Survey '%s' (%s -> %s): %d points, %.1f blocks, %.1f seconds".formatted(status.trackId(),
-							status.from(), status.to(), status.pointCount(), status.distance(), status.elapsedTicks() / 20.0)), false);
+					"Survey from '%s', latest zone '%s': %d zone(s), %d points, %.1f blocks, %.1f seconds".formatted(
+							status.from(), status.latest(), status.visitedControlPoints(), status.pointCount(),
+							status.distance(), status.elapsedTicks() / 20.0)), false);
 			return Command.SINGLE_SUCCESS;
 		} catch (RecordingException exception) {
 			return fail(source, exception.getMessage());
@@ -339,6 +344,10 @@ public final class RgpsCommands {
 	private static int fail(CommandSourceStack source, String message) {
 		source.sendFailure(Component.literal(message == null ? "Unknown Railway GPS error" : message));
 		return 0;
+	}
+
+	private static boolean argumentPresent(CommandContext<CommandSourceStack> context, String name) {
+		return context.getNodes().stream().anyMatch(node -> node.getNode().getName().equals(name));
 	}
 
 	private static String format(BlockPos position) {

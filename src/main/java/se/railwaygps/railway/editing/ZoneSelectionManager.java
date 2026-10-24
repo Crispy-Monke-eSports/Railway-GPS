@@ -17,14 +17,22 @@ public final class ZoneSelectionManager {
 	private final Map<UUID, Selection> selections = new HashMap<>();
 
 	public Selection markFirst(ServerPlayer player) {
+		return markFirst(player, player.blockPosition());
+	}
+
+	public Selection markFirst(ServerPlayer player, BlockPos position) {
 		Selection previous = selections.get(player.getUUID());
-		Selection updated = new Selection(dimension(player), player.blockPosition(),
+		Selection updated = new Selection(dimension(player), position,
 				previous != null && previous.dimension().equals(dimension(player)) ? previous.second() : null);
 		selections.put(player.getUUID(), updated);
 		return updated;
 	}
 
 	public Selection markSecond(ServerPlayer player) {
+		return markSecond(player, player.blockPosition());
+	}
+
+	public Selection markSecond(ServerPlayer player, BlockPos position) {
 		Selection previous = selections.get(player.getUUID());
 		if (previous == null || previous.first() == null) {
 			throw new IllegalStateException("Select the first zone corner first");
@@ -32,7 +40,7 @@ public final class ZoneSelectionManager {
 		if (!previous.dimension().equals(dimension(player))) {
 			throw new IllegalStateException("Both zone corners must be in the same dimension");
 		}
-		Selection updated = new Selection(previous.dimension(), previous.first(), player.blockPosition());
+		Selection updated = new Selection(previous.dimension(), previous.first(), position);
 		selections.put(player.getUUID(), updated);
 		return updated;
 	}

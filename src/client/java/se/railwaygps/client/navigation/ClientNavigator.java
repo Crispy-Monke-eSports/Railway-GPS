@@ -11,6 +11,7 @@ import se.railwaygps.navigation.PhysicalInstructionResolver;
 import se.railwaygps.navigation.PhysicalRouteLeg;
 import se.railwaygps.navigation.PhysicalRoutePlan;
 import se.railwaygps.navigation.PhysicalRoutePlanner;
+import se.railwaygps.navigation.StartInstructionResolver;
 import se.railwaygps.railway.model.ControlPoint;
 import se.railwaygps.railway.model.RailwayNetwork;
 import se.railwaygps.railway.model.ZoneBox;
@@ -148,11 +149,8 @@ public final class ClientNavigator {
 	private static Component instruction(LocalPlayer player, RailwayNetwork network, PhysicalRouteLeg leg) {
 		PhysicalInstructionResolver.Instruction resolved;
 		if (currentLeg == 0 && isInsideControlPoint(player, network, leg.from())) {
-			Vec3 heading = player.getVehicle() != null ? player.getVehicle().getDeltaMovement() : Vec3.ZERO;
-			if (heading.x() * heading.x() + heading.z() * heading.z() < 0.0025) {
-				heading = player.getLookAngle();
-			}
-			resolved = PhysicalInstructionResolver.fromStart(leg, heading.x(), heading.z());
+			Vec3 position = player.getVehicle() != null ? player.getVehicle().position() : player.position();
+			resolved = StartInstructionResolver.resolve(network, leg, position.x(), position.y(), position.z());
 		} else if (currentLeg + 1 < plan.legs().size()) {
 			resolved = PhysicalInstructionResolver.between(network, leg, plan.legs().get(currentLeg + 1));
 		} else {

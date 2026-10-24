@@ -74,6 +74,20 @@ public final class RailwayNetworkEditor {
 		return validated(copy(network, network.controlPoints(), sections, tracks, network.transitions()));
 	}
 
+	/** Adds a recorded track with an opaque identity owned by Railway GPS. */
+	public static AddedTrack addRecordedTrack(
+			RailwayNetwork network, String fromId, String toId, String dimension,
+			List<TrackPoint> rawPoints) throws NetworkValidationException {
+		String trackId = newTrackId(network);
+		RailwayNetwork updated = addRecordedTrack(network, trackId, fromId, toId, dimension, rawPoints);
+		List<PhysicalTrack> opposite = updated.tracks().values().stream()
+				.filter(track -> !track.id().equals(trackId) && track.pairedTrackId() == null)
+				.filter(track -> track.fromControlPoint().equals(toId) && track.toControlPoint().equals(fromId))
+				.toList();
+		if (opposite.size() == 1) updated = pairTracks(updated, trackId, opposite.getFirst().id());
+		return new AddedTrack(updated, trackId);
+	}
+
 	public static RailwayNetwork pairTracks(RailwayNetwork network, String firstId, String secondId)
 			throws NetworkValidationException {
 		if (firstId.equals(secondId)) {
@@ -159,8 +173,19 @@ public final class RailwayNetworkEditor {
 		return id;
 	}
 
+	private static String newTrackId(RailwayNetwork network) {
+		String id;
+		do {
+			id = "track-" + UUID.randomUUID().toString().replace("-", "");
+		} while (network.tracks().containsKey(id));
+		return id;
+	}
+
 	private static PhysicalTrack withPair(PhysicalTrack track, String pairId) {
 		return new PhysicalTrack(track.id(), track.sectionId(), track.fromControlPoint(), track.toControlPoint(),
 				track.dimension(), track.points(), track.length(), track.directions(), pairId, track.status());
+	}
+
+	public record AddedTrack(RailwayNetwork network, String trackId) {
 	}
 }
