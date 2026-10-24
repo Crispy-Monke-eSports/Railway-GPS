@@ -313,7 +313,9 @@ Krav:
 - ID:n valideras och användarinmatning får inte kunna skriva utanför världens Railway GPS-data.
 - Databasen är en implementationdetalj; klienter får en kompakt nätverksmodell, inte direkt databasåtkomst.
 
-## 7. Administratörens arbetsflöde
+## 7. Administration och redigering
+
+Servern ska kunna ge en person begränsad behörighet att namnge och granska spår utan full administratörsbehörighet. Skapande av fysisk räls, kontrollpunkter och övergångar kan kräva en högre behörighetsnivå.
 
 ### 7.1 Visuellt markeringsverktyg
 
@@ -398,7 +400,44 @@ Vardera fysiska rälsen spelas in separat. Moddet får föreslå att två ungef�
 
 Parningen påverkar presentation och administration. Ruttberäkningen fortsätter att använda respektive riktad passage.
 
-### 7.6 Namnge Riksettan
+### 7.6 Namnge en känd sträcka mellan två punkter
+
+När de fysiska spåren redan är registrerade ska en behörig person kunna namnge en sträcka utan att åka den igen.
+
+Arbetsflödet är:
+
+1. Välj typ, tekniskt ID och visningsnamn för namnet.
+2. Markera en startpunkt och en slutpunkt i världen eller på kartan.
+3. Moddet projicerar punkterna på närmaste kompatibla registrerade spår.
+4. Moddet räknar fram sammanhängande kandidater genom det kända spårnätet.
+5. Kandidaten förhandsvisas tydligt i världen och på kartan.
+6. Personen väljer om namnet ska gälla vald riktning, hela spårsektioner eller även parade motriktade spår.
+7. Namnet sparas först efter uttrycklig bekräftelse.
+
+Första och sista spåret får partiella intervall. Namngivningen skapar därför inga kontrollpunkter och förändrar inte ruttgrafen.
+
+Illustrativt flöde:
+
+```mcfunction
+/rgps label select start way riksettan Riksettan
+# Klicka startpunkt och slutpunkt med markeringsverktyget
+/rgps label include paired-tracks
+/rgps label confirm
+```
+
+Om endast en sammanhängande väg finns mellan punkterna kan den väljas automatiskt för förhandsvisning. Om flera vägar är möjliga måste moddet visa alternativen och kräva ett val. Personen ska också kunna lägga till en eller flera mellanpunkter för att styra sträckan genom rätt gren:
+
+```mcfunction
+/rgps label add-via
+```
+
+En namngivning får aldrig tyst välja en godtycklig gren. Punkten ska inte heller fästas på ett närliggande parallellt spår utan att den visuella förhandsvisningen visar exakt vad som valts.
+
+Att köra sträckan med minecart finns kvar som ett alternativ när nätet ännu inte är registrerat, när en komplex väg är enklare att demonstrera genom körning eller när personen uttryckligen föredrar det.
+
+### 7.7 Namnge Riksettan
+
+När Riksettans fysiska spår redan finns markerar personen start och slut, granskar den beräknade vägen och inkluderar vid behov de parade spåren. Namnet kan på detta sätt omfatta många sektioner och kontrollpunkter utan en ny minecart-färd.
 
 En längre led kan namnges genom att köra längs redan registrerade spår:
 
@@ -409,11 +448,13 @@ En längre led kan namnges genom att köra längs redan registrerade spår:
 
 Moddet matchar färden mot de fysiska spåren och lägger namnet över alla berörda intervall. Motsvarande parallella spår kan inkluderas efter förhandsvisning och bekräftelse.
 
-Riksettan kan fortsätta genom valfritt antal rödljus eftersom namnet inte är en grafkant.
+Riksettan kan i båda fallen fortsätta genom valfritt antal rödljus eftersom namnet inte är en grafkant.
 
-### 7.7 Namnge Centralbron
+### 7.8 Namnge Centralbron
 
-Administratören startar namninspelningen vid den ena visuella gränsen, exempelvis de första stockarna, och avslutar vid den andra:
+Om spåren redan är registrerade markerar personen de två visuella gränserna, exempelvis stockarna på vardera sidan. Moddet väljer intervallet mellan de projicerade punkterna och kan efter bekräftelse lägga samma namn på det parade motriktade spåret.
+
+Som alternativ kan personen starta en namninspelning vid den ena gränsen och avsluta vid den andra:
 
 ```mcfunction
 /rgps label record start bridge centralbron Centralbron
@@ -422,7 +463,7 @@ Administratören startar namninspelningen vid den ena visuella gränsen, exempel
 
 Resultatet är spårintervall som motsvarar exakt den markerade delen. Inga falska korsningsnoder behövs.
 
-### 7.8 Anpassade instruktioner
+### 7.9 Anpassade instruktioner
 
 En instruktion kopplas till en utgång eller en specifik inkommande–utgående övergång vid en kontrollpunkt.
 
@@ -636,7 +677,9 @@ När ett objekt väljs ska det kunna:
 
 Under inspelning visas geometrin live. Inträde och utträde ur kontrollzoner markeras. Föreslagna delningar, portar och spårpar visas innan administratören bekräftar dem.
 
-En administratör ska kunna se vad servern tolkat utan att läsa databas- eller JSON-filer.
+Vid punktbaserad namngivning ska startpunkt, slutpunkt, eventuella mellanpunkter och hela den beräknade spårvägen visas. Om flera kandidater finns ska användaren kunna växla mellan dem innan bekräftelse. Vald riktning, partiella ändintervall och automatiskt inkluderade parallella spår ska gå att särskilja visuellt.
+
+En behörig redaktör ska kunna se vad servern tolkat utan att läsa databas- eller JSON-filer.
 
 ## 13. JourneyMap-integration
 
@@ -651,6 +694,7 @@ JourneyMap är valfri och använder samma presentationsmodell som den inbyggda i
 - visa stationer och plattformar;
 - markera den aktiva passagen starkare än övriga spår;
 - visa kontrollzoner och fel endast i administrationsläge;
+- låta behöriga redaktörer markera två punkter, förhandsgranska spårvägen mellan dem och skapa ett namnlager;
 - låta spelaren välja destination via stationer på kartan när API:t tillåter det.
 
 Railway GPS äger alltid grafen, namnen och navigeringen. JourneyMap är endast visning och möjlig inmatning.
@@ -780,7 +824,9 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 - Långa leder genom flera sektioner, exempelvis Riksettan.
 - Partiella lokala intervall, exempelvis Centralbron.
 - Flera samtidiga namn på samma spår.
-- Namninspelning och visuell range-redigering.
+- Punkt-till-punkt-namngivning över redan registrerade spår.
+- Kandidatval, mellanpunkter och inkludering av parade spår.
+- Namninspelning och visuell intervallredigering som alternativ.
 
 ### Fas 7 – Navigation
 
@@ -817,6 +863,7 @@ En första komplett version av målarkitekturen ska demonstrera att:
 14. JourneyMap kan visa samma nät och aktiva resväg när integrationen är installerad.
 15. En avbruten inspelning lämnar ingen delvis aktiv data.
 16. En felaktig ändring kan inte ersätta den senaste fungerande revisionen.
+17. En behörig redaktör kan markera två punkter, välja rätt kandidatväg och namnge de befintliga spåren utan att åka sträckan.
 
 ## 20. Återstående detaljbeslut
 
@@ -832,6 +879,8 @@ Följande behöver prototypas eller beslutas under implementationen:
 8. Om ruttberäkningen primärt görs på servern, klienten eller hybridmässigt.
 9. Hur tillfälliga avstängningar och enkelriktning under drift exponeras för administratörer.
 10. Vilken databasimplementation och backupstrategi som bäst passar målservern.
+11. Hur kandidater mellan två markerade punkter rankas när flera likvärdiga vägar finns.
+12. Vilka separata roller som får visa, namnge respektive ändra det fysiska nätet.
 
 ## 21. Sammanfattning
 
