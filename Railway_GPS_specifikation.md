@@ -301,7 +301,7 @@ Krav:
 - Den senast fungerande revisionen behålls om en ändring misslyckas.
 - Automatiska säkerhetskopior skapas före destruktiva eller större operationer.
 - JSON-export och JSON-import ska finnas för granskning, backup och externa verktyg.
-- Importerad data aktiveras aldrig innan hela modellen validerats.
+- Importerad data aktiveras aldrig innan hela modellen validerats, **inklusive kontroll av serverövergripande unika stationsvisningsnamn**. Kolliderande namn avvisas utan automatisk omdöpning.
 - ID:n valideras och användarinmatning får inte kunna skriva utanför världens Railway GPS-data.
 - Databasen är en implementationdetalj; klienter får en kompakt nätverksmodell, inte direkt databasåtkomst.
 
@@ -355,7 +355,7 @@ Illustrativ kommandodesign:
 
 ### 7.3 Skapa en station
 
-1. Ange ett namn på stoppstället.
+1. Ange ett **serverunikt stationsnamn** (efter trimning, utan hänsyn till stora/små bokstäver). Visa namnkonflikt direkt, även om den andra stationen finns i en annan dimension.
 2. Markera en enkel **stoppunkt/stoppzon direkt på rälsen**, vid spårslut eller längs ett genomgående spår.
 3. Identifiera rätt fysisk räls för att undvika falsk ankomst på ett närliggande parallellt spår.
 4. Spara med behörighet för administration/publicering.
@@ -719,6 +719,7 @@ Valideringen ska bland annat hitta:
 - portar utan anslutna spår;
 - övergångar som refererar till saknade passager;
 - stationers stoppunkter/stoppzoner utan säker koppling till rätt fysisk räls;
+- **dubbelanvända stationsvisningsnamn** var som helst på servern (efter trimning, skiftlägesoberoende), även vid import eller namnbyte;
 - oavsiktligt överlappande kontrollzoner;
 - geometri som hoppar orimligt långt;
 - spår som byter dimension utan särskild övergång;
