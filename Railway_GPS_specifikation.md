@@ -1,446 +1,844 @@
 # Railway GPS
 
-**Projektbeskrivning och teknisk specifikation – sammanställning av våra beslut och idéer**  
-**Målplattform:** Minecraft 26.3, Fabric  
-**Status:** Planeringsunderlag, inte färdig implementationsspecifikation
+**Produkt- och teknisk målbild**
+
+**Målplattform:** Minecraft Java Edition 26.3, Fabric
+
+**Status:** Sammanhängande planeringsspecifikation för nästa arkitektur
+
+Den här specifikationen beskriver den önskade lösningen utan krav på bakåtkompatibilitet med en tidigare datamodell. Exakta kommandon och lagringsscheman får förfinas under implementation, men domänmodellen och användarbeteendet nedan är vägledande.
 
 ## 1. Vision
 
-**Railway GPS** är ett navigationsmod för stora järnvägsnät på en Minecraft-server. En spelare ska kunna välja en station eller annan registrerad destination och få hjälp av en HUD som visar vilken väg spelaren ska ta, exempelvis **"Välj vänster vid nästa rödljus"**.
+Railway GPS är ett icke-ingripande navigationsmod för stora befintliga järnvägsnät. Spelaren väljer en station eller annan destination och får hjälp att följa rätt fysiska spår genom nätet.
 
-Modden ska **inte förändra vanilla-gameplay**. Den ska inte styra minecarten, trycka på knappar, påverka räls, växlar eller redstone och inte automatiskt välja väg åt spelaren. Den ska enbart läsa relevant information och ge navigationshjälp.
+Moddet ska kunna ge instruktioner som:
 
-En administratör bygger och underhåller serverns järnvägskarta. Kartan överförs automatiskt till spelare med Railway GPS installerat. **JourneyMap ska kunna integreras men inte vara ett krav.**
+- **Fortsätt rakt fram**
+- **Fortsätt åt vänster**
+- **Fortsätt åt höger**
+- **Vänd tillbaka**
+- **Fortsätt på Riksettan**
+- **Fortsätt åt vänster in på Hamnleden**
+- **Välj knappen för Martyrön**
 
-### Grundprinciper
+Moddet ska inte styra minecarten, trycka på knappar, ändra redstone, lägga om växlar eller på annat sätt påverka vanilla-järnvägen. Det observerar färden och visar navigationshjälp.
 
-- Navigationsnätverket är **manuellt administrerat**: administratörer väljer stationer, rödljus och vilka anslutningar som ska finnas.
-- Själva **spårgeometrin spelas in** när administratören åker med en minecart från en registrerad punkt till en annan.
-- Rödljus kan vara byggda på olika sätt. GPS:en kräver **ingen standardiserad redstone-konstruktion** och behöver inte känna till knapparnas exakta positioner.
-- Varje station, rödljus och inspelad väg får **en egen JSON-fil** på servern.
-- Varje inspelad väg har ett **unikt tekniskt ID** och ett separat **visningsnamn**.
-- Servermodden håller nätverket aktuellt; klientmodden räknar rutter, följer spelarens position och visar HUD.
+Servern äger och validerar järnvägsnätet. Klienten tar emot en säker, versionsmärkt vy av nätet och ansvarar för presentation, positionsmatchning och navigeringsupplevelse. JourneyMap är en valfri visualisering, inte ett krav.
 
-## 2. Befintlig järnvägsmiljö
+## 2. Grundprinciper
 
-På servern finns långa järnvägar med korsningar som kallas **rödljus**. En minecart stannar vid rödljuset, och spelaren väljer manuellt väg. Den beskrivna varianten har flera knappar och lampor för val av färdväg samt en knapp för att åka tillbaka.
+### 2.1 Fysik, vägval och namn är separata
 
-**Rödljusen kan se olika ut.** Railway GPS ska därför behandla dem som geografiska *navigationspunkter* med anslutande järnvägssträckor, inte som en särskild maskintyp.
+Systemet ska skilja mellan:
 
-Begrepp:
+1. **Fysisk räls:** var de faktiska spåren går.
+2. **Tillåtna övergångar:** vilka vägval som går att göra i en korsning.
+3. **Semantiska namn:** exempelvis Riksettan, Centralbron eller Södra tunneln.
+4. **Beräknad resa:** den kombination av riktade spår och övergångar som leder till spelarens mål.
+
+Ett namn får aldrig vara nödvändigt för att ett spår ska kunna användas. Ett namn får börja eller sluta mitt på en fysisk spårsektion och kan fortsätta genom flera korsningar.
+
+### 2.2 Interna ID:n visas inte för spelaren
+
+Alla objekt har stabila tekniska ID:n. Visningsnamn är valfria där de inte behövs för spelupplevelsen. Tekniska namn som `section_0042` eller `track_a81f` ska inte visas i vanlig HUD.
+
+### 2.3 Spelaren ska aldrig behöva förstå datamodellen
+
+Administratören ska kunna bygga och granska nätet visuellt. Vanliga spelare ska endast se relevanta namn, instruktioner och den aktiva resan.
+
+### 2.4 Osäkerhet ska visas, inte döljas
+
+När två parallella spår inte kan särskiljas säkert ska moddet visa **Osäker position** i stället för att gissa. Samma princip gäller oklara eller icke verifierade vägval.
+
+## 3. Begrepp
 
 | Begrepp | Betydelse |
 |---|---|
-| **Station** | Namngiven destination eller startpunkt i järnvägsnätet. |
-| **Rödljus / korsning** | Navigationspunkt där spelaren normalt kan välja fortsatt väg. |
-| **Väg / sträcka / route** | Namngiven, inspelad järnvägsförbindelse mellan två registrerade punkter. |
-| **Spårpunkter** | Koordinater som beskriver hur en inspelad järnväg faktiskt går, inklusive svängar och höjdskillnader. |
-| **Järnvägsgraf** | Nätverk av stationer/rödljus (noder) och inspelade vägar (kanter). |
+| **Kontrollpunkt** | Plats där nätets topologi eller navigationsbeteende förändras, exempelvis station, korsning, terminal eller dimensionsövergång. |
+| **Zon** | Ett tredimensionellt område bestående av en eller flera boxar. |
+| **Station** | Namngiven destination med stationsområde och en eller flera plattformszoner. |
+| **Korsning/rödljus** | Kontrollpunkt där spår möts och vissa övergångar kan väljas. |
+| **Port** | En fysisk in- eller utgång där ett spår passerar kontrollpunktens gräns. |
+| **Spårsektion** | Fysisk korridor mellan två närliggande kontrollpunkter. |
+| **Fysiskt spår** | En inspelad rälsgeometri inom en sektion. En sektion kan innehålla flera parallella spår. |
+| **Passage** | Användning av ett fysiskt spår i en tillåten riktning. |
+| **Övergång** | Tillåten koppling från en inkommande passage till en utgående passage vid en kontrollpunkt. |
+| **Namnlager** | Ett valfritt namn som läggs över hela eller delar av ett eller flera spår, exempelvis Riksettan eller Centralbron. |
+| **Resväg** | Den väg GPS:en beräknar som en följd av passager och övergångar. |
+| **Inspelning/survey** | En administratörs observerade minecart-färd som används för att registrera fysisk geometri och genomförda övergångar. |
 
-## 3. Övergripande arkitektur
+## 4. Systemarkitektur
 
-### Serverdel (Fabric)
+### 4.1 Serverdel
 
 Servern ansvarar för att:
 
-1. Läsa och spara individuella JSON-filer för stationer, rödljus och vägar.
-2. Registrera administratörskommandon för att skapa och hantera nätverket.
-3. Spela in en administratörs minecart-färd mellan två valda punkter.
-4. Validera nätverket och bygga en sammanställd graf i minnet.
-5. Synkronisera det färdiga nätverket till klienter som har Railway GPS.
-6. Skicka uppdateringar när en väg läggs till, tas bort eller när nätverket laddas om.
+1. Lagra den auktoritativa järnvägsmodellen.
+2. Hantera kontrollpunkter, zoner, spårsektioner, fysiska spår, övergångar och namnlager.
+3. Spela in administratörers minecart-färder.
+4. Skapa förslag på sektioner, spårpar och observerade övergångar.
+5. Validera alla ändringar innan de publiceras.
+6. Bygga en riktad navigationsgraf.
+7. Distribuera versionsmärkta nätverkssnapshots och ändringar till kompatibla klienter.
+8. Behörighetskontrollera läsning, inspektion och redigering.
 
-Serverdelen ska vara lättviktig och inte påverka hur järnvägen fungerar.
+Serverdelen får inte kräva JourneyMap eller ladda klientklasser på en dedikerad server.
 
-### Klientdel (Fabric)
+### 4.2 Klientdel
 
 Klienten ansvarar för att:
 
-1. Ta emot serverns aktuella järnvägskarta.
-2. Låta spelaren välja destination.
-3. Beräkna en körbar rutt via järnvägsgrafen.
-4. Uppskatta var spelaren befinner sig längs de inspelade sträckorna.
-5. Visa instruktioner i en HUD och beräkna om rutten vid avvikelse.
-6. Valfritt visa stationer, rödljus och järnvägssträckor via JourneyMap.
+1. Ta emot och cachelagra serverns aktuella nätverksvy.
+2. Låta spelaren söka efter och välja destination.
+3. Beräkna eller följa servergodkänd resväg.
+4. Matcha minecartens position och riktning mot rätt fysiskt spår.
+5. Visa HUD, aktiv resväg och manöverinstruktioner.
+6. Visa ett inbyggt visuellt nätverksläge.
+7. Ge administratörer markerings-, gransknings- och felsökningsverktyg.
+8. Valfritt spegla samma vy i JourneyMap.
 
-**Installationsidé:** samma Railway GPS-mod kan ha både server- och klientfunktioner, med korrekt separation så att klientens renderingskod inte laddas på en dedikerad server. Fabric API används där det behövs. JourneyMap är en valfri klientintegration.
+Spelare utan Railway GPS ska kunna ansluta och spela normalt. Servern skickar endast modspecifika data till kompatibla klienter.
 
-Det är tänkt att vanliga spelare utan Railway GPS fortfarande ska kunna ansluta till servern och spela vanilla som vanligt. Servern skickar endast modspecifika nätverkspaket till kompatibla klienter.
+## 5. Domänmodell
 
-> **Att verifiera vid implementation:** exakta kompatibla utgåvor och API-versioner för Minecraft 26.3, Fabric, Fabric API och JourneyMap.
+### 5.1 Zoner
 
-## 4. Lagring på servern
+En zon är dimensionsbunden och består av en eller flera axis-aligned bounding boxes. Flera boxar gör det möjligt att approximera L-formade stationer, diagonala korsningar och åtskilda plattformar utan att kräva godtyckliga polygoner i första versionen.
 
-Varje objekt sparas i **en separat JSON-fil**. Filerna hör till den aktuella Minecraft-världen, exempelvis:
+```json
+{
+  "dimension": "minecraft:overworld",
+  "shapes": [
+    { "min": [10, 70, 30], "max": [28, 78, 55] },
+    { "min": [28, 70, 38], "max": [45, 78, 47] }
+  ],
+  "enterMargin": 0.0,
+  "exitMargin": 1.5
+}
+```
+
+Krav:
+
+- `Y` ingår alltid så att broar, tunnlar och staplade spår kan skiljas åt.
+- Inträde och utträde använder hysteres för att undvika fladdrande tillstånd vid zonkanten.
+- Flera sammanhängande ticks kan krävas innan inträde eller utträde bekräftas.
+- Överlappande kontrollzoner varnas och kräver uttrycklig bekräftelse.
+- Zoner kan visualiseras och redigeras på klienten av behöriga administratörer.
+
+### 5.2 Stationer
+
+En station består av:
+
+- tekniskt ID;
+- visningsnamn;
+- dimension;
+- ett övergripande stationsområde;
+- en eller flera plattforms-/stoppzoner;
+- valfri metadata och kartikon.
 
 ```text
-<världsmapp>/
-└── railwaygps/
-    ├── stations/
-    │   ├── centralstationen.json
-    │   ├── spawn_station.json
-    │   └── norra_station.json
-    ├── junctions/
-    │   ├── rodljus1.json
-    │   ├── rodljus2.json
-    │   └── rodljus3.json
-    └── routes/
-        ├── norra_bron.json
-        ├── spawn_till_rodljus1.json
-        └── sodra_tunneln.json
+Centralstationen
+├── stationsområde
+├── plattform 1
+├── plattform 2
+└── plattform 3
 ```
 
-I många serverinstallationer heter världsmappen `world`, men sökvägen ska följa serverns verkliga världsmapp.
+Stationsområdet används för sökning, kartpresentation och den allmänna upplevelsen av att vara vid stationen. Plattformszonerna används för exakt start, ankomst och val av rätt spår.
 
-### Station (`stations/centralstationen.json`)
+Ett tåg som passerar genom stationsområdet på ett annat spår ska inte automatiskt räknas som anlänt. En destination bekräftas när den planerade plattforms-/stoppzonen nås med rimlig färdhistorik.
+
+### 5.3 Korsningar och rödljus
+
+En korsning består av:
+
+- tekniskt ID;
+- valfritt visningsnamn;
+- en kontrollzon;
+- portar där spår går in i eller ut ur zonen;
+- uttryckligen tillåtna övergångar;
+- valfria instruktioner för knappar eller andra kontroller.
+
+Kontrollzonen omsluter hela området där vägvalet sker. Den används för att dela inspelningar, identifiera inträde och utträde och bekräfta vilket vägval vagnen faktiskt genomförde.
+
+Zonen bestämmer inte automatiskt vilka svängar som är möjliga. Det gör övergångarna.
+
+### 5.4 Spårsektioner och fysiska spår
+
+En spårsektion förbinder två närliggande kontrollpunkter och grupperar de fysiska spår som hör till samma korridor.
+
+```text
+Spårsektion: västra infarten
+├── spår A: väst → öst
+├── spår B: öst → väst
+└── eventuellt reservspår
+```
+
+Varje fysiskt spår innehåller:
+
+- stabilt tekniskt ID;
+- sektionstillhörighet;
+- två portar/ändpunkter;
+- inspelad 3D-geometri;
+- faktisk längd;
+- tillåtna riktningar;
+- status, exempelvis utkast, verifierat eller avstängt.
+
+Följande måste stödjas:
+
+- **Tvåspårigt:** separat geometri för vardera riktningen.
+- **Enkelspårigt dubbelriktat:** samma geometri kan traverseras i båda riktningarna.
+- **Enkelriktat:** endast en passage är tillåten.
+- **Fler än två spår:** exempelvis express-, plattforms- eller reservspår.
+
+Två parallella spår ska inte representeras genom att samma linje vänds baklänges om de i världen ligger på olika räls.
+
+### 5.5 Passager och övergångar
+
+En passage är ett fysiskt spår plus en riktning. Ruttgrafen arbetar med passager, inte bara med sektioner.
+
+En övergång beskriver ett verifierat vägval:
+
+```text
+inkommande passage → kontrollpunkt → utgående passage
+```
+
+Övergången kan innehålla:
+
+- tillåten/avstängd status;
+- observerad väg genom kontrollzonen;
+- manuell kostnad eller väntetid;
+- kontroll-/knappinstruktion;
+- valfri lokaliserad instruktion;
+- källa, exempelvis observerad inspelning eller administratörsbeslut.
+
+Att två spår möter samma kontrollzon betyder inte att övergången mellan dem automatiskt är möjlig.
+
+### 5.6 Namnlager
+
+Namnlager är presentation ovanpå den fysiska modellen. Ett namnlager kan omfatta hela eller partiella intervall av flera spår.
+
+Typer kan exempelvis vara:
+
+- `way` – längre led, exempelvis Riksettan;
+- `bridge` – bro, exempelvis Centralbron;
+- `tunnel` – tunnel;
+- `district` – område;
+- `custom` – serverdefinierad typ.
+
+Ett namnlager innehåller:
+
+- tekniskt ID;
+- visningsnamn;
+- typ;
+- prioritet;
+- valfri färg och ikon;
+- en mängd spårintervall.
 
 ```json
 {
-  "id": "centralstationen",
-  "name": "Centralstationen",
-  "dimension": "minecraft:overworld",
-  "position": [1250, 64, -350]
-}
-```
-
-### Rödljus (`junctions/rodljus1.json`)
-
-```json
-{
-  "id": "rodljus1",
-  "name": "Rödljus 1",
-  "dimension": "minecraft:overworld",
-  "position": [1450, 70, -500],
-  "radius": 25
-}
-```
-
-`radius` är ett tänkt inställbart identifieringsområde, inte en garanti för att ett rödljus identifieras enbart på avstånd. Den faktiska positionsmatchningen måste också ta hänsyn till inspelade rälssträckor och tidigare färdriktning.
-
-### Väg (`routes/norra_bron.json`)
-
-```json
-{
-  "id": "norra_bron",
-  "name": "Norra bron",
-  "from": "rodljus1",
-  "to": "centralstationen",
-  "dimension": "minecraft:overworld",
-  "bidirectional": false,
-  "distance": 850.0,
-  "points": [
-    [1450, 70, -500],
-    [1480, 70, -500],
-    [1490, 71, -510],
-    [1500, 72, -530],
-    [1250, 64, -350]
+  "id": "centralbron",
+  "name": "Centralbron",
+  "type": "bridge",
+  "priority": 50,
+  "ranges": [
+    { "track": "track_eastbound", "from": 42.0, "to": 118.0 },
+    { "track": "track_westbound", "from": 40.0, "to": 116.0 }
   ]
 }
 ```
 
-**Obs:** Alla koordinater och sträcklängder i exemplen är påhittade. Under riktig inspelning skapas spårpunkter och beräknad längd automatiskt. Det exakta JSON-schemat behöver fastställas vid implementationen.
+Konsekvenser:
 
-### Lagringsregler
+- Centralbron kan börja och sluta vid visuella markeringar mitt på ett spår utan nya grafnoder.
+- Riksettan kan fortsätta genom flera spårsektioner och rödljus.
+- Samma fysiska spår kan tillhöra flera namn, exempelvis både Riksettan och Centralbron.
+- Namnlösa spår fungerar fullt ut men ger ingen påhittad etikett i HUD.
+- Namn påverkar inte vilka resvägar som är fysiskt möjliga.
 
-- **Tekniskt ID** är unikt och kan användas i kommandon och som filnamn: `norra_bron`.
-- **Visningsnamn** får vara läsbart och kan ändras utan att anslutningens ID ändras: `Norra bron`.
-- En väg refererar till startpunkt och slutpunkt via deras **ID:n**.
-- Stationer och rödljus behöver **inte** innehålla listor över anslutna vägar. Den informationen byggs från filerna i `routes/`.
-- Det kan finnas **flera olika vägar mellan samma två noder**; de skiljs åt med sina unika väg-ID:n.
-- Samma ID ska inte kunna användas för flera olika noder.
-- Raderade vägfiler ska inte radera stationer eller rödljus.
-- En nod som används av någon väg får inte raderas utan att beroendena hanteras först.
-- Filnamn/ID:n bör valideras för att hindra felaktiga sökvägar, dubbletter och filnamnskrockar.
-- Uppdateringar ska skrivas **atomärt** (tillfällig fil + säker ersättning) så att avbruten skrivning inte förstör sparade data.
+### 5.7 Resväg
 
-## 5. Administratörens arbetsflöde
-
-### 5.1 Registrera punkter
-
-Administratören registrerar stationer och rödljus vid deras ungefärliga koordinater i världen. Punkterna representerar geografiska navigationsplatser och kräver inga specifika knappar eller block.
-
-Föreslagna kommandon:
-
-```mcfunction
-/rgps node add rodljus1
-/rgps station add centralstationen
-```
-
-Dessa kommandon skapar varsin JSON-fil i korrekt mapp. Detaljer som visningsnamn och sökradie kan senare ändras i JSON eller med fler admin-kommandon.
-
-### 5.2 Spela in en järnvägssträcka
-
-Administratören sitter i en minecart vid startpunkten och anger **startnod, målnod och ett unikt väg-ID**:
-
-```mcfunction
-/rgps record start rodljus1 rodljus2 norra_bron
-```
-
-Modden spelar därefter in den faktiska färden medan administratören **själv kör** från `rodljus1` till `rodljus2` och gör de vägval som behövs vid korsningar.
-
-Vid framkomst avslutar administratören uttryckligen inspelningen:
-
-```mcfunction
-/rgps record finish
-```
-
-Först då valideras och sparas resultatet som exempelvis:
-
-```text
-<världsmapp>/railwaygps/routes/norra_bron.json
-```
-
-När målets område upptäcks kan modden föreslå att inspelningen avslutas, men ska **inte** automatiskt spara bara för att minecarten kommer nära målkoordinaterna. Spår kan ligga parallellt eller på olika höjd.
-
-### 5.3 Strikt avbrytande om administratören lämnar minecarten
-
-**Beslutat beteende:** om administratören lämnar minecarten under inspelningen ska inspelningen **avbrytas helt direkt**, inte pausas.
-
-- Alla tillfälliga inspelningsdata kastas.
-- Ingen ny vägfil skapas eller skrivs över.
-- Administratören får ett tydligt meddelande om att inspelningen avbröts.
-- Inspelningen kopplas till **den specifika minecart** som administratören satt i när den startade.
-
-Samma avbrytanderegel föreslås för frånkoppling, död, dimensionsbyte, förstörd minecart eller byte till en annan minecart.
-
-Manuellt avbrytkommando:
-
-```mcfunction
-/rgps record cancel
-```
-
-### 5.4 Föreslagna admin-kommandon
-
-| Kommando | Funktion |
-|---|---|
-| `/rgps node add <id>` | Registrera ett rödljus vid administratörens position. |
-| `/rgps station add <id>` | Registrera en station vid administratörens position. |
-| `/rgps record start <från> <till> <väg_id>` | Starta inspelning av namngiven järnvägssträcka. |
-| `/rgps record finish` | Avsluta, validera och spara inspelningen. |
-| `/rgps record cancel` | Avbryt utan att spara något. |
-| `/rgps record status` | Visa pågående inspelning, längd och antal punkter. |
-| `/rgps route list` | Lista befintliga vägar. |
-| `/rgps route info <väg_id>` | Visa detaljer om en väg. |
-| `/rgps route remove <väg_id>` | Ta bort endast den namngivna vägen. |
-| `/rgps route rename <gammalt_id> <nytt_id>` | Ändra en vägs tekniska ID/filnamn. |
-| `/rgps network list` | Visa registrerade förbindelser. |
-| `/rgps reload` | Läs om, validera och synkronisera JSON-filerna. |
-
-**Obs:** Kommandona ovan är föreslagen kommandodesign, inte redan implementerade kommandon. Administrationskommandon ska vara behörighetskontrollerade.
-
-## 6. Hur inspelning av räls ska fungera tekniskt
-
-Inspelningen görs på **serversidan** medan administratören färdas i en minecart.
-
-### Primär insamling
-
-- Läs minecartens position och rörelse regelbundet, lämpligen i samband med server-ticks (vanligen 20 per sekund vid normal serverprestanda).
-- Undersök rälsblocket som vagnen faktiskt följer när det är möjligt.
-- Registrera ordningen på de passerade spårpositionerna och rälsens form: raka partier, kurvor och lutningar.
-- Spara höjd (`Y`) samt `X` och `Z` så att broar, tunnlar och nivåskillnader skiljs åt.
-- Duplicera inte punkter i onödan när vagnen står stilla.
-
-### Efterbearbetning
-
-- Beräkna sträckans **faktiska färdlängd** utifrån den inspelade vägen, inte bara fågelvägen.
-- Komprimera långa raka avsnitt till färre punkter men **behåll kurvor, lutningar och viktig geometri**.
-- Var försiktig vid parallella spår, korsningar och slingor så att förenklingen inte ger en missvisande rutt.
-- Behåll tillräckliga spårpunkter för positionsmatchning och kartöverlägg.
-
-### Inspelningsregler
-
-- En inspelad färd representerar minst en **riktad** anslutning, `från → till`.
-- **Dubbelriktning antas inte automatiskt.** Returresa kan spelas in separat eller uttryckligen markeras som tillåten om den har verifierats.
-- Om färden passerar ett redan registrerat mellanliggande rödljus bör modden varna och på sikt kunna hjälpa administratören dela upp vägen i flera sträckor.
-- Om vägen redan har ett befintligt ID ska administratören inte råka skriva över filen utan ett särskilt, bekräftat ersättningsflöde.
-
-## 7. Nätverksmodell och ruttberäkning
-
-### Grafen
-
-- **Noder:** stationer och rödljus.
-- **Kanter:** namngivna, inspelade vägar mellan noder.
-- **Kantvikt:** inspelad körsträcka (senare eventuellt uppskattad restid).
-- **Riktning:** varje kant har tillåten färdriktning; dubbelriktning måste anges eller verifieras.
-- **Parallella kanter:** flera olika vägar får förbinda samma noder.
+En resväg lagras inte som en duplicerad helhetsgeometri. Den beräknas som en följd av passager och övergångar genom det gemensamma fysiska nätet.
 
 Exempel:
 
 ```text
-Spawnstation ──(spawn_norr)──> Rödljus 1
-                                   │
-                                   ├──(norra_bron)──> Rödljus 2 ──> Centralstationen
-                                   │
-                                   └──(sodra_tunneln)──> Rödljus 3 ──> Centralstationen
+Station A
+→ namnlös anslutning
+→ Riksettan
+→ Riksettan · Centralbron
+→ Riksettan
+→ stationsinfart
+→ Station B
 ```
 
-Klienten kan använda **Dijkstra** eller **A\*** för att välja kortaste tillåtna väg genom nätet.
+Flera resor som passerar Centralbron använder samma registrerade spår och samma namnlager. Bron behöver inte spelas in på nytt för varje destinationskombination.
 
-### Viktig navigationsbegränsning
+## 6. Serverlagring
 
-Att en korsning har anslutningar till A, B och C betyder **inte nödvändigtvis** att alla svängar går att göra från varje infart. Därför bör ruttsystemet på sikt kunna hantera **tillåtna/otillåtna övergångar** vid en korsning, baserat på vilken väg spelaren kommer från och vilken väg spelaren ska fortsätta på.
-
-Som en första prototyp kan det finnas en förenklad standardregel för korsningar, men vi ska inte presentera omöjliga övergångar som säkert körbara när de inte är verifierade.
-
-## 8. Positionsbestämning och omplanering
-
-GPS:en ska inte behöva veta exakt när spelaren stannar i ett rödljus eller trycker på en knapp.
-
-I stället arbetar klienten med **map matching** mot de inspelade rälssträckorna:
-
-1. Läser spelarens/minecartens aktuella position och färdriktning.
-2. Jämför positionen mot de inspelade spårgeometrierna i relevant dimension.
-3. Tar hänsyn till **föregående bekräftade sträcka**, färdriktning och nätverkets möjliga fortsättningar.
-4. Följer hur långt längs den aktuella sträckan spelaren kommit.
-5. Bekräftar nästa rödljus/station när både position och färdhistorik stödjer det.
-
-Ett möjligt internt flöde är:
+Den auktoritativa modellen bör lagras transaktionellt med schemaversion, exempelvis i en världslokal SQLite-databas:
 
 ```text
-På känd sträcka → Närmar sig rödljus → Rödljus bekräftat → Ny sträcka identifierad
+<världsmapp>/railwaygps/network.db
 ```
 
-Sökradier kring noder och en viss **hysteres** förhindrar att samma rödljus identifieras upprepade gånger när vagnen står stilla.
-
-### När spelaren tar fel väg
-
-- Om minecarten följer en annan inspelad förbindelse än den planerade ska GPS:en **räkna om** rutten.
-- När flera spår ligger tätt eller parallellt måste klienten få visa **osäker position** i stället för att gissa.
-- I svåra fall kan säker omplanering behöva vänta tills nästa registrerade punkt eller sträcka kan identifieras.
-
-Den inspelade geometrin gör detta betydligt säkrare än att bara välja närmaste rödljus utifrån koordinater.
-
-## 9. Navigationsinstruktioner och HUD
-
-Spelaren väljer destination och får exempelvis:
+Rekommenderade logiska tabeller/samlingar:
 
 ```text
-RAILWAY GPS
-Destination: Centralstationen
-
-NÄSTA KORSNING: Rödljus 2
-Välj höger
-215 block kvar
-
-Återstående järnväg: 2 450 block
-Korsningar kvar: 3
+control_points
+zones
+zone_boxes
+stations
+platforms
+junctions
+ports
+track_sections
+physical_tracks
+track_geometry
+allowed_transitions
+custom_instructions
+labels
+label_track_ranges
+network_revisions
 ```
 
-Möjliga HUD-funktioner:
+Krav:
 
-- Nästa rödljus/station.
-- **Vänster, höger, rakt fram eller tillbaka** där instruktionen går att fastställa.
-- Avstånd längs inspelad järnväg till nästa korsning och destination.
-- Återstående antal korsningar.
-- Indikator för **på rätt spår**, **omräkning** eller **osäker position**.
-- Visa främst navigations-HUD när spelaren sitter i en minecart.
+- Ändringar sker i transaktioner och blir aktiva först efter fullständig validering.
+- Den senast fungerande revisionen behålls om en ändring misslyckas.
+- Automatiska säkerhetskopior skapas före destruktiva eller större operationer.
+- JSON-export och JSON-import ska finnas för granskning, backup och externa verktyg.
+- Importerad data aktiveras aldrig innan hela modellen validerats.
+- ID:n valideras och användarinmatning får inte kunna skriva utanför världens Railway GPS-data.
+- Databasen är en implementationdetalj; klienter får en kompakt nätverksmodell, inte direkt databasåtkomst.
 
-### Hur vänster/höger fastställs
+## 7. Administratörens arbetsflöde
 
-Den inspelade rälsens **faktiska ingångs- och utgångsriktning** vid ett rödljus ger ett bättre geometriskt underlag än en rak linje mellan rödljusens mittpunkter.
+### 7.1 Visuellt markeringsverktyg
 
-Det går dock inte att garantera att geometriskt "vänster" alltid motsvarar rätt **knappval** i ett specialbyggt rödljus. Därför föreslås **valfria manuella instruktioner** för specifika övergångar, till exempel: *"Kommer från norra_bron och ska vidare via sodra_tunneln → välj den högra knappen"*.
+Administratören ska kunna markera två hörn i världen med ett verktyg. Klienten visar omedelbart:
 
-I första versionen bör GPS:en hellre ge en neutral instruktion, till exempel **"Fortsätt mot Rödljus 3"**, än ett osäkert höger-/vänsterbesked.
+- valda hörn;
+- transparent volym och kantlinjer;
+- zonens storlek;
+- spår som träffas av zonen;
+- överlapp med befintliga zoner;
+- varningar innan zonen bekräftas.
 
-## 10. JourneyMap-integration
+Flera boxar kan läggas till samma zon. JourneyMap eller nätverksinspektören kan användas som kompletterande redigeringsyta.
 
-JourneyMap ska vara **valfri** och får inte vara ett krav för att ruttberäkningen eller HUD:en ska fungera.
+### 7.2 Skapa en korsning
+
+Arbetsflödet är:
+
+1. Skapa korsningsobjektet.
+2. Markera kontrollzonen runt hela växel-/rödljusområdet.
+3. Spela in spåren som passerar zonen.
+4. Låt moddet föreslå portar vid zonens gräns.
+5. Bekräfta tillåtna övergångar.
+6. Lägg vid behov till kontrollinstruktioner.
+
+Illustrativ kommandodesign:
+
+```mcfunction
+/rgps junction create sigma
+/rgps junction zone select sigma
+/rgps zone add-box
+/rgps zone confirm
+```
+
+### 7.3 Skapa en station
+
+Arbetsflödet är:
+
+1. Skapa stationen med ett visningsnamn.
+2. Markera stationsområdet.
+3. Lägg till en eller flera plattforms-/stoppzoner.
+4. Koppla inspelade fysiska spår till respektive plattform.
+
+```mcfunction
+/rgps station create central Centralstationen
+/rgps station zone select central
+/rgps station platform add central 1
+/rgps station platform add central 2
+```
+
+### 7.4 Spela in fysisk räls
+
+En inspelning får vara lång och passera flera kontrollpunkter. Administratören behöver inte starta om vid varje rödljus.
+
+```mcfunction
+/rgps survey start
+/rgps survey status
+/rgps survey finish
+```
+
+Efter `finish` skapas ett visuellt utkast. Moddet:
+
+1. matchar färden mot kända kontrollzoner;
+2. delar geometrin vid zonernas in- och utpassager;
+3. föreslår nya sektioner och spår;
+4. registrerar observerade övergångar genom korsningar;
+5. föreslår parning med närliggande motriktat spår;
+6. visar konflikter eller osäkerheter.
+
+Administratören granskar sedan förslaget innan det publiceras:
+
+```mcfunction
+/rgps survey confirm
+/rgps survey discard
+```
+
+Ingen aktiv nätverksdata ersätts av ett ogenomgånget utkast.
+
+### 7.5 Tvåspåriga sträckor
+
+Vardera fysiska rälsen spelas in separat. Moddet får föreslå att två ungefär parallella, motriktade spår hör till samma sektion, men en administratör bekräftar kopplingen.
+
+Parningen påverkar presentation och administration. Ruttberäkningen fortsätter att använda respektive riktad passage.
+
+### 7.6 Namnge Riksettan
+
+En längre led kan namnges genom att köra längs redan registrerade spår:
+
+```mcfunction
+/rgps label record start way riksettan Riksettan
+/rgps label record finish
+```
+
+Moddet matchar färden mot de fysiska spåren och lägger namnet över alla berörda intervall. Motsvarande parallella spår kan inkluderas efter förhandsvisning och bekräftelse.
+
+Riksettan kan fortsätta genom valfritt antal rödljus eftersom namnet inte är en grafkant.
+
+### 7.7 Namnge Centralbron
+
+Administratören startar namninspelningen vid den ena visuella gränsen, exempelvis de första stockarna, och avslutar vid den andra:
+
+```mcfunction
+/rgps label record start bridge centralbron Centralbron
+/rgps label record finish
+```
+
+Resultatet är spårintervall som motsvarar exakt den markerade delen. Inga falska korsningsnoder behövs.
+
+### 7.8 Anpassade instruktioner
+
+En instruktion kopplas till en utgång eller en specifik inkommande–utgående övergång vid en kontrollpunkt.
+
+```text
+Kontrollpunkt: Sigma
+Utgående passage: Martyrögrenen
+Instruktion: Välj knappen för Martyrön
+```
+
+En generell instruktion för utgången kan kompletteras med mer specifika övergångsregler. Den mest specifika giltiga regeln vinner.
+
+## 8. Tekniskt inspelningsbeteende
+
+Inspelningen sker på serversidan och kopplas till administratören och den specifika minecart som används vid start.
+
+### 8.1 Insamling
+
+- Sampla minecartens position och rörelse under server-ticks.
+- Identifiera rälsblocket som vagnen följer när detta kan göras säkert.
+- Registrera ordning, kurvor, lutningar och dimension.
+- Undvik duplicerade punkter när vagnen står stilla.
+- Registrera passage genom kontrollzoner med tidsordning och riktning.
+- Visa den inspelade linjen live på administratörens klient.
+
+### 8.2 Efterbearbetning
+
+- Beräkna faktisk färdlängd längs spåret.
+- Förenkla raka delar utan att förlora kurvor, höjdskillnader eller parallell separation.
+- Projektera kontrollzonernas gränspassager på geometrin.
+- Identifiera befintlig geometri som den nya inspelningen sannolikt motsvarar.
+- Skapa förslag, aldrig tysta destruktiva sammanslagningar.
+
+### 8.3 Strikt avbrott
+
+Om administratören lämnar minecarten avbryts inspelningen omedelbart och all tillfällig data kastas. Samma regel gäller vid:
+
+- frånkoppling;
+- död;
+- dimensionsbyte;
+- förstörd minecart;
+- byte till en annan minecart.
+
+Manuell avbrytning:
+
+```mcfunction
+/rgps survey cancel
+```
+
+Att nå en station eller kontrollzon får ge ett förslag om att avsluta, men ska inte automatiskt spara eller publicera inspelningen.
+
+## 9. Navigationsgraf och ruttberäkning
+
+Grafens tillstånd bör vara mer detaljerat än en nod per korsning. Ett lämpligt internt tillstånd är en port eller spårände vid en kontrollpunkt.
+
+Grafkanter är:
+
+1. **Passagekanter:** färd längs ett fysiskt spår i tillåten riktning.
+2. **Övergångskanter:** verifierad rörelse genom en kontrollpunkt från en passage till en annan.
+
+Detta förhindrar att alla spår vid samma korsning automatiskt betraktas som ömsesidigt anslutna.
+
+Kostnaden kan baseras på:
+
+- fysisk längd;
+- uppskattad restid;
+- väntetid vid kontrollpunkt;
+- manuell prioritet;
+- tillfällig avstängning eller mycket hög kostnad.
+
+Dijkstra eller A* kan användas. Ruttresultatet är en följd av specifika riktade passager och övergångar, vilket gör att klienten vet exakt vilket av två parallella spår som avses.
+
+## 10. Positionsbestämning
+
+Klienten gör kontinuerlig map matching med:
+
+- spelarens/minecartens 3D-position;
+- färdriktning och hastighet;
+- föregående bekräftade passage;
+- planerad nästa passage;
+- kontrollzonernas inträde och utträde;
+- avstånd längs kandidaternas geometri.
+
+Färdriktning och färdhistorik ska väga tungt så att två parallella spår inte sammanblandas.
+
+Tillstånd kan vara:
+
+```text
+På bekräftat spår
+→ Närmar sig kontrollpunkt
+→ Inne i kontrollzon
+→ Utgående spår observerat
+→ Ny passage bekräftad
+```
+
+Om spelaren tar en annan verifierad övergång än den planerade räknas resvägen om. Om läget är tvetydigt visas osäker position tills tillräcklig evidens finns.
+
+## 11. Navigationsinstruktioner och HUD
+
+HUD:en ska prioritera handling framför tekniska detaljer:
+
+```text
+RAILWAY GPS · Central
+RIKSETTAN · Centralbron
+
+Välj knappen för Martyrön
+Nästa kontrollpunkt: Sigma · 28 block
+
+Återstående: 1 240 block
+```
+
+### 11.1 Automatisk manöver
+
+Den sista stabila vektorn på inkommande spår jämförs med den första stabila vektorn på utgående spår. Resultatet klassificeras som:
+
+- rakt fram;
+- vänster;
+- höger;
+- tillbaka;
+- osäkert.
+
+Geometrin ska hämtas från den verkliga inspelade rälsen, inte från raka linjer mellan kontrollpunkternas mittpunkter.
+
+### 11.2 Instruktionsprioritet
+
+1. Specifik manuell instruktion för exakt övergång.
+2. Generell kontrollinstruktion för den valda utgången.
+3. Automatisk vänster/höger/rakt/tillbaka-instruktion.
+4. Neutral instruktion mot nästa relevanta mål när geometrin är osäker.
+
+### 11.3 Namnpresentation
+
+- Lång led och lokal konstruktion kan visas samtidigt: `Riksettan · Centralbron`.
+- Om spelaren fortsätter inom samma led kan HUD visa `Fortsätt på Riksettan`.
+- Vid namnbyte kan den visa `Fortsätt åt vänster in på Hamnleden`.
+- Namnlösa anslutningar visar inget internt ID; HUD använder nästa station eller kontrollpunkt som kontext.
+- Alla standardtexter ska vara lokaliserbara. Administratörsskrivna texter visas som de lagrats.
+
+## 12. Inbyggd visuell nätverksvy
+
+Den visuella nätverksinspektören är en kärnfunktion och ska fungera utan JourneyMap.
+
+### 12.1 Visningslägen
+
+Ett tangentkommando växlar mellan:
+
+- **Av:** endast aktiv navigering visas.
+- **Enkel:** stationer, namngivna objekt och aktiv resväg.
+- **Nätverk:** alla registrerade spår, kontrollpunkter och namn.
+- **Administration:** zoner, portar, riktningar, övergångar, utkast och valideringsfel.
+
+Administrationsläget kräver behörighet.
+
+### 12.2 Världsrendering
+
+Klienten ska kunna visa:
+
+- stationers områden och plattformszoner;
+- korsningars kontrollzoner;
+- inspelade spår som linjer ovanför rälsen;
+- riktningspilar;
+- tillåtna övergångar genom korsningar;
+- namnlager och deras exakta intervall;
+- aktiv resväg och valt fysiskt spår;
+- pågående inspelning;
+- utkast och felaktig geometri.
+
+Föreslagna standarder:
+
+| Objekt | Standardvisning |
+|---|---|
+| Namnlöst spår | Grå linje |
+| Namngiven led | Ledens färg |
+| Aktiv resväg | Kraftig blå linje |
+| Station | Cyan zon |
+| Plattform | Grön zon |
+| Korsning | Orange zon |
+| Otillåten övergång | Rött kryss |
+| Fel eller lös geometri | Röd markerad linje |
+| Pågående inspelning | Gul linje |
+
+Färger, opacitet och linjemönster ska kunna anpassas och inte vara den enda informationsbäraren.
+
+### 12.3 Nätverksutforskare
+
+Klienten ska ha en sökbar panel:
+
+```text
+Nätverk
+├── Leder
+│   └── Riksettan
+├── Konstruktioner
+│   └── Centralbron
+├── Stationer
+│   └── Centralstationen
+├── Korsningar
+│   └── Sigma
+└── Namnlösa spår
+```
+
+När ett objekt väljs ska det kunna:
+
+- markeras i världen och på kartan;
+- centreras i en kartvy;
+- visa anslutna objekt;
+- visa spår och riktningar;
+- visa tillåtna övergångar och instruktioner;
+- visa datakälla, revision och valideringsstatus;
+- visa tekniska ID:n endast i administratörsläge.
+
+### 12.4 Visuell inspelning och redigering
+
+Under inspelning visas geometrin live. Inträde och utträde ur kontrollzoner markeras. Föreslagna delningar, portar och spårpar visas innan administratören bekräftar dem.
+
+En administratör ska kunna se vad servern tolkat utan att läsa databas- eller JSON-filer.
+
+## 13. JourneyMap-integration
+
+JourneyMap är valfri och använder samma presentationsmodell som den inbyggda inspektören.
 
 Önskade funktioner:
 
-- Visa registrerade **stationer** och **rödljus** på kartan.
-- Visa inspelade **järnvägssträckor som linjer längs deras faktiska geometri**.
-- Markera den aktuellt beräknade rutten.
-- Eventuellt låta spelaren välja en station/destination via JourneyMap eller dess waypoints.
+- visa båda fysiska spåren separat;
+- visa riktningspilar eller riktad stil;
+- visa namngivna leder sammanhängande genom flera kontrollpunkter;
+- visa Centralbron endast över dess registrerade intervall;
+- visa stationer och plattformar;
+- markera den aktiva passagen starkare än övriga spår;
+- visa kontrollzoner och fel endast i administrationsläge;
+- låta spelaren välja destination via stationer på kartan när API:t tillåter det.
 
-Railway GPS hanterar fortfarande sin **egen graf och datalagring**. JourneyMap används för kartvisualisering och eventuellt val av mål. Exakta API-möjligheter och versionsstöd ska kontrolleras innan denna integration byggs.
+Railway GPS äger alltid grafen, namnen och navigeringen. JourneyMap är endast visning och möjlig inmatning.
 
-## 11. Synkronisering och omladdning
+## 14. Synkronisering
 
-Föreslaget flöde vid anslutning:
+Föreslaget anslutningsflöde:
 
-1. Servern har laddat alla stations-, junction- och route-filer.
-2. Servern validerar att referenser, dimensioner och format är korrekta.
-3. Den färdiga kartan byggs i minnet och förses med en nätverksversion.
-4. Railway GPS-klienter får kartan via Fabric Networking.
-5. Klienten bygger en lokal navigationsgraf och kan börja navigera.
+1. Servern laddar och validerar senaste aktiva revision.
+2. En kompatibel klient annonserar stöd och behörighetsnivå.
+3. Servern skickar en kompakt snapshot med nätverksversion/hash.
+4. Klienten bygger rumsliga index och renderingscache.
+5. Senare ändringar skickas som revisionerade deltauppdateringar eller ny snapshot vid behov.
 
-Vid ändringar eller `/rgps reload`:
+Krav:
 
-- Läs in filerna till en **ny tillfällig nätverksmodell**.
-- Kontrollera hela modellen innan den aktiveras.
-- Om JSON eller referenser är trasiga: rapportera vilket objekt som felar och **behåll den senast fungerande kartan**.
-- Om allt är giltigt: ersätt serverns aktiva karta och synkronisera klienterna.
-- En klient som navigerar längs en borttagen väg ska **räkna om rutten**, eller rapportera att ingen väg längre finns.
+- Paket ska storleksbegränsas och vid behov delas upp.
+- Klienten aktiverar inte en ofullständig revision.
+- Borttagna eller ändrade passager orsakar omplanering av aktiv resa.
+- Administrationsmetadata skickas endast till behöriga klienter när den inte behövs för vanlig navigering.
+- Servern förblir auktoritativ även om klienten visar eller föreslår redigeringar.
 
-För stora nätverk bör synkroniseringen använda ett versions-/hashvärde och vid behov lämplig paketuppdelning. Själva filstrukturen på servern behöver inte speglas en-till-en hos spelarna; klienten behöver främst den färdiga modellen.
+## 15. Validering och säkerhet
 
-## 12. Säkerhet, stabilitet och gränser
+Nätverket får inte publiceras om kritiska fel finns.
 
-- Endast behöriga administratörer får skapa, spela in, byta namn på och radera nätverksobjekt.
-- Ingen automatisering av knappar, redstone, räls eller vagnens styrning.
-- Ingen ny väg sparas förrän administratören uttryckligen avslutat en giltig inspelning.
-- Att lämna den aktiva minecarten **avbryter omedelbart inspelningen utan att spara**.
-- Filskrivningar görs säkert och sparade filer valideras före aktivering.
-- ID:n och filnamn kontrolleras så att kommandon inte kan skriva utanför järnvägsmappen.
-- Parallella spår, nivåskillnader och överlappande sträckor måste hanteras försiktigt vid positionsbestämning.
-- En inspelad resa är **inte** i sig bevis för att motsatt riktning fungerar.
-- Att två vägar möts vid ett rödljus är **inte** i sig bevis för att alla anslutningssvängar går att göra.
-- Ingen förutsättning att JourneyMap finns installerat.
+Valideringen ska bland annat hitta:
 
-## 13. Prioriterad utvecklingsplan
+- spår utan giltiga ändpunkter;
+- kontrollzoner utan portar;
+- portar utan anslutna spår;
+- övergångar som refererar till saknade passager;
+- plattformar utan relevant räls;
+- oavsiktligt överlappande kontrollzoner;
+- geometri som hoppar orimligt långt;
+- spår som byter dimension utan särskild övergång;
+- namnlager med ogiltiga intervall;
+- dubbletter och trasiga ID-referenser;
+- oavsiktlig sammanblandning av spår på olika höjd;
+- aktiva resvägar som använder avstängda objekt.
 
-### Fas 1 – Grundläggande servernätverk
+Endast behöriga administratörer får skapa, ändra, publicera eller radera nätverksobjekt. Läsbehörighet för teknisk nätverksdata kan skiljas från vanlig navigeringsbehörighet.
 
-- Fabric-projekt och separat server-/klientkod.
-- Filstruktur: `stations/`, `junctions/`, `routes/`.
-- JSON-inläsning, validering och centralt nätverksobjekt.
-- Admin-kommandon för att skapa stationer och rödljus.
+Destruktiva ändringar kräver förhandsvisning, beroendeanalys och bekräftelse. Systemet ska kunna återgå till föregående fungerande revision.
 
-### Fas 2 – Inspelning
+## 16. Prestanda
 
-- `/rgps record start <från> <till> <väg_id>`.
-- Registrering av minecart och rälsgeometri.
-- Fullt avbrott när administratören lämnar minecarten.
-- `/rgps record finish`, `cancel`, `status`.
-- Namngivna filer, listning, borttagning och omdöpning av vägar.
+Stora nätverk ska hanteras med:
 
-### Fas 3 – Enkel navigation
+- rumsligt index per dimension och chunk;
+- geometrisk förenkling i flera detaljnivåer;
+- avståndsbegränsad världsrendering;
+- cache av färdiga renderingssegment;
+- separata lager som kan stängas av;
+- inkrementella nätverksuppdateringar;
+- begränsad kandidatmängd vid map matching;
+- bakgrundsberäkning där Minecrafts trådsäkerhetsregler tillåter det.
 
-- Synkronisering från server till klient.
-- Destinationer, graf och kortaste väg.
-- Grundläggande map matching längs inspelade sträckor.
-- Enkel HUD med nästa navigationspunkt och avstånd.
+Full detalj behövs nära spelaren och den aktiva resvägen. Avlägsna spår kan visas förenklat.
 
-### Fas 4 – Pålitliga vägval
+## 17. Exempelscenario
 
-- Förbättrade höger-/vänster-/rakt-fram-instruktioner.
-- Valfria manuella instruktioner för specialkorsningar.
-- Stöd för begränsade övergångar vid rödljus.
-- Omplanering vid fel vägval och tydlig osäkerhetsindikering.
+Följande nät innehåller två parallella spår, flera rödljus och en kort bro:
 
-### Fas 5 – JourneyMap och förbättrad administration
+```text
+                         Riksettan
+┌──────────────────────────────────────────────────────────────┐
+Station A ══ Signal 1 ══ Signal 2 ══ Centralbron ══ Signal 3 ══ Station B
+└──────────────────────────────────────────────────────────────┘
+```
 
-- Visa stationer, rödljus, spår och beräknad rutt.
-- Eventuell destinationsväljare via JourneyMap.
-- Mer avancerade admin-kommandon och förbättrad kartredigering.
+Den fysiska modellen består av flera sektioner mellan stationerna och signalerna. Varje sektion innehåller ett östgående och ett västgående spår.
 
-## 14. Saker som återstår att besluta/testa
+Namnet **Riksettan** täcker samtliga relevanta spårintervall och bryts inte av signalerna. Namnet **Centralbron** täcker endast delen mellan brons visuella gränser på båda spåren.
 
-Detta är fortfarande **öppna implementationfrågor**, inte färdiga beslut:
+En resa från Station A till Station B använder de östgående passagerna. En resa åt andra hållet använder de separat inspelade västgående passagerna. Båda visar Riksettan, och endast medan vagnen befinner sig på bron visas Centralbron.
 
-1. Exakt hur en station/rödljus positioneras, exempelvis på spelarens koordinat, på rälsblocket eller med särskilt placerad markör.
-2. Hur en inspelning säkert kontrollerar att start och mål motsvarar angivna noder.
-3. Hur spårgeometrin representeras och förenklas utan att parallella spår sammanblandas.
-4. Hur korsningar med otillåtna övergångar konfigureras utan att systemet blir komplicerat.
-5. Hur instruktioner vid olika specialbyggda rödljus ska kunna åsidosättas manuellt.
-6. Exakt syntax för att redigera visningsnamn, sökradier, dubbelriktning och övrig metadata.
-7. Exakt API-stöd och kompatibilitet för den aktuella Minecraft-/Fabric-/JourneyMap-versionen.
-8. Om navigering ska kunna starta på vilken punkt som helst längs en inspelad sträcka eller om första versionen förutsätter start nära en registrerad nod.
+Vid Signal 2 kan övergången exempelvis ha instruktionen:
 
-## 15. Sammanfattning av fastslagna önskemål
+```text
+Välj knappen för Martyrön
+```
 
-Railway GPS ska vara ett **icke-ingripande GPS-mod** för ett befintligt vanilla-järnvägsnät. Serveradministratörer registrerar stationer och rödljus som geografiska punkter och spelar in **namngivna järnvägssträckor** genom att faktiskt åka dem i en minecart. Inspelningen fångar kurvor, lutningar och den verkliga vägen. Om administratören lämnar minecarten **avbryts allt omedelbart utan sparning**.
+om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall beräknas riktningen från spårgeometrin.
 
-Varje station, rödljus och väg ska ha **en egen fil** i mapparna `stations/`, `junctions/` respektive `routes/` i världens `railwaygps/`-katalog. En lättviktig Fabric-serverdel distribuerar nätverket till klienterna. Klienten använder spårgeometrin för positionsbestämning, ruttberäkning och en HUD med körinstruktioner. JourneyMap kan integreras för kartvisning men ska vara valfritt. Inget i modden ska ändra hur vanilla-järnvägen fungerar.
+## 18. Prioriterad utvecklingsplan
+
+### Fas 1 – Domänmodell och lagring
+
+- Kontrollpunkter, sammansatta 3D-zoner och portar.
+- Stationer med stationsområde och plattformszoner.
+- Spårsektioner, fysiska spår, passager och övergångar.
+- Transaktionell, revisionshanterad lagring.
+- Full nätverksvalidering och JSON-export/import.
+
+### Fas 2 – Synkronisering och grundvisualisering
+
+- Server–klient-snapshot med version/hash.
+- Inbyggd rendering av zoner, spår och riktningar.
+- Visningslägen och behörighetsstyrd administratörsvy.
+- Grundläggande nätverksutforskare.
+
+### Fas 3 – Visuell zonredigering
+
+- Markering av två hörn i världen.
+- Flera boxar per zon.
+- Förhandsvisning, mått och överlappsvarningar.
+- Stationers plattformar och korsningars kontrollzoner.
+
+### Fas 4 – Survey och fysisk nätbyggnad
+
+- Serversidig minecart-inspelning.
+- Strikt avbrott vid dismount eller annan sessionsförlust.
+- Långa inspelningar genom flera kontrollzoner.
+- Automatiska delnings-, port- och övergångsförslag.
+- Visuell utkastgranskning före publicering.
+
+### Fas 5 – Flerspårighet och övergångar
+
+- Inspelning av separata riktningar.
+- Förslag och bekräftelse av parallella spårpar.
+- Tillåtna/otillåtna korsningsövergångar.
+- Kontrollinstruktioner för knappar och specialbyggen.
+
+### Fas 6 – Namnlager
+
+- Långa leder genom flera sektioner, exempelvis Riksettan.
+- Partiella lokala intervall, exempelvis Centralbron.
+- Flera samtidiga namn på samma spår.
+- Namninspelning och visuell range-redigering.
+
+### Fas 7 – Navigation
+
+- Ruttberäkning över passager och verifierade övergångar.
+- Stabil map matching mellan parallella spår.
+- Omplanering och osäkerhetsläge.
+- Automatiska och manuella instruktioner.
+- Lokaliserad HUD.
+
+### Fas 8 – JourneyMap och administrationspolering
+
+- Gemensam presentationsmodell för intern rendering och JourneyMap.
+- Kartbaserat destinationsval.
+- Sökning, filtrering och objektinspektion.
+- Prestandaoptimering för stora nät.
+
+## 19. Acceptanskriterier
+
+En första komplett version av målarkitekturen ska demonstrera att:
+
+1. Två separata parallella spår mellan samma kontrollpunkter kan spelas in och navigeras i rätt riktning.
+2. Ett enkelspår kan markeras som verifierat dubbelriktat utan duplicerad geometri.
+3. En lång inspelning genom flera rödljus delas och granskas utan att vägnamnet behöver brytas.
+4. Riksettan kan omfatta flera sektioner och kontrollpunkter.
+5. Centralbron kan täcka endast en del av spåret utan extra grafnod.
+6. Samma spår kan samtidigt visa Riksettan och Centralbron.
+7. Namnlösa spår kan ingå i resvägar utan att tekniska ID:n visas för spelaren.
+8. En station med flera plattformar kan ge korrekt start och ankomst.
+9. En omöjlig sväng i en korsning används aldrig av ruttberäkningen.
+10. Automatisk vänster/höger/rakt-instruktion använder verklig in- och utgående geometri.
+11. En anpassad instruktion som `Välj knappen för Martyrön` har företräde.
+12. Administratören kan se zoner, spår, riktningar, övergångar, namn och fel visuellt.
+13. Vanlig navigation fungerar utan JourneyMap.
+14. JourneyMap kan visa samma nät och aktiva resväg när integrationen är installerad.
+15. En avbruten inspelning lämnar ingen delvis aktiv data.
+16. En felaktig ändring kan inte ersätta den senaste fungerande revisionen.
+
+## 20. Återstående detaljbeslut
+
+Följande behöver prototypas eller beslutas under implementationen:
+
+1. Exakt tolerans och algoritm för att föreslå parallella spårpar.
+2. Exakt format för geometri och detaljnivåer.
+3. Hur portar redigeras när flera spår passerar zonkanten mycket nära varandra.
+4. Om ankomst kräver låg hastighet, stopp eller endast säker passage genom plattformszonen.
+5. Hur flera samtidiga `way`-namn prioriteras i en begränsad HUD.
+6. Slutlig kommandosyntax och hur mycket administration som flyttas till grafiskt gränssnitt.
+7. Exakta Fabric- och JourneyMap-API-versioner för målversionen.
+8. Om ruttberäkningen primärt görs på servern, klienten eller hybridmässigt.
+9. Hur tillfälliga avstängningar och enkelriktning under drift exponeras för administratörer.
+10. Vilken databasimplementation och backupstrategi som bäst passar målservern.
+
+## 21. Sammanfattning
+
+Railway GPS ska modellera verklig räls, inte bara namngivna linjer mellan punkter. Kontrollpunkter representeras av tydliga 3D-zoner. Stationer har stationsområde och plattformar. Korsningar har portar och verifierade övergångar. En spårsektion kan innehålla ett, två eller flera fysiska spår med separata riktningar och geometrier.
+
+Namn är fristående lager. Riksettan kan löpa genom flera rödljus, Centralbron kan omfatta endast den stockmarkerade delen av två parallella spår och namnlösa anslutningar kan fortfarande användas fullt ut. En resa beräknas genom det gemensamma fysiska nätet och duplicerar inte spår för varje destinationskombination.
+
+Klienten ska göra nätet synligt: zoner, spår, riktningar, övergångar, namn, aktiv resväg och valideringsfel ska kunna inspekteras i världen. JourneyMap använder samma modell men förblir valfritt. Administratören ska alltid kunna se vad servern har registrerat och granska ett utkast innan det publiceras.
+
+Moddet förblir vägledande och icke-ingripande. Det berättar vad spelaren ska göra men styr aldrig minecart, knappar, redstone eller växlar.
