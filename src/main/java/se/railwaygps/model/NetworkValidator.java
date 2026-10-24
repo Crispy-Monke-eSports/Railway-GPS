@@ -24,6 +24,7 @@ public final class NetworkValidator {
 		validateStations(network.stations(), nodeIds, errors);
 		validateJunctions(network.junctions(), nodeIds, errors);
 		validateRoutes(network, errors);
+		validateInstructions(network, errors);
 
 		if (!errors.isEmpty()) {
 			throw new NetworkValidationException(errors);
@@ -100,6 +101,53 @@ public final class NetworkValidator {
 		if (toDimension != null && !route.dimension().equals(toDimension)) {
 			errors.add("Route '" + id + "' dimension differs from its end node");
 		}
+	}
+
+	private static void validateInstructions(RailwayNetwork network, List<String> errors) {
+		for (String nodeId : network.stations().keySet()) {
+			validateNodeInstructions(network, nodeId, network.stations().get(nodeId).instructions(), errors);
+		}
+		for (String nodeId : network.junctions().keySet()) {
+			validateNodeInstructions(network, nodeId, network.junctions().get(nodeId).instructions(), errors);
+		}
+	}
+
+	private static void validateNodeInstructions(
+			RailwayNetwork network, String nodeId, Map<String, String> instructions, List<String> errors) {
+		instructions.forEach((key, text) -> {
+			TransitionInstructions.Transition transition = TransitionInstructions.parse(key).orElse(null);
+			if (transition == null) {
+				errors.add("Node '" + nodeId + "' has invalid instruction key '" + key + "'");
+				return;
+			}
+			if (isBlank(text) || text.length() > 256) {
+				errors.add("Node '" + nodeId + "' instruction '" + key + "' must contain 1-256 characters");
+			}
+			if (!TransitionInstructions.START.equals(transition.incomingRoute())) {
+				Route incoming = network.routes().get(transition.incomingRoute());
+				if (incoming == null) {
+					errors.add("Node '" + nodeId + "' instruction refers to missing incoming route '"
+						+ transition.incomingRoute() + "'");
+				} else if (!canArrive(incoming, nodeId)) {
+					errors.add("Route '" + incoming.id() + "' cannot arrive at instruction node '" + nodeId + "'");
+				}
+			}
+			Route outgoing = network.routes().get(transition.outgoingRoute());
+			if (outgoing == null) {
+				errors.add("Node '" + nodeId + "' instruction refers to missing outgoing route '"
+						+ transition.outgoingRoute() + "'");
+			} else if (!canDepart(outgoing, nodeId)) {
+				errors.add("Route '" + outgoing.id() + "' cannot depart instruction node '" + nodeId + "'");
+			}
+		});
+	}
+
+	public static boolean canArrive(Route route, String nodeId) {
+		return nodeId.equals(route.to()) || route.bidirectional() && nodeId.equals(route.from());
+	}
+
+	public static boolean canDepart(Route route, String nodeId) {
+		return nodeId.equals(route.from()) || route.bidirectional() && nodeId.equals(route.to());
 	}
 
 	private static void validateIdentity(String kind, String fileId, String objectId, String name, List<String> errors) {

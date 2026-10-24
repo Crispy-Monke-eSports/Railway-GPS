@@ -52,4 +52,18 @@ class NetworkValidatorTest {
 		assertTrue(!NetworkValidator.isValidId("../world"));
 		assertTrue(!NetworkValidator.isValidId("Norra bron"));
 	}
+
+	@Test
+	void validatesNodeInstructionRouteReferences() {
+		Route route = new Route("main_line", "Main line", "start", "end", "minecraft:overworld", false, 10,
+				List.of(new TrackPoint(0, 64, 0), new TrackPoint(10, 64, 0)));
+		Station instructed = new Station("start", "Start", "minecraft:overworld", new TrackPoint(0, 64, 0),
+				Map.of("*>missing", "Press the button"));
+		RailwayNetwork network = new RailwayNetwork(
+				Map.of(instructed.id(), instructed), Map.of(END.id(), END), Map.of(route.id(), route));
+
+		NetworkValidationException exception = assertThrows(
+				NetworkValidationException.class, () -> NetworkValidator.validate(network));
+		assertTrue(exception.getMessage().contains("missing outgoing route 'missing'"));
+	}
 }

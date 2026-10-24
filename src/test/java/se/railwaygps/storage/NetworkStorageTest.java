@@ -11,6 +11,7 @@ import se.railwaygps.model.TrackPoint;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -65,6 +66,16 @@ class NetworkStorageTest {
 		storage.removeRoute("renamed");
 		RailwayNetwork remaining = storage.load();
 		assertEquals(java.util.Set.of("second"), remaining.routes().keySet());
+	}
+
+	@Test
+	void updatesAndReloadsNodeInstructions() throws Exception {
+		NetworkStorage storage = storageWithConnectedNodes();
+		storage.createRoute(route("line"));
+		storage.updateStation(new Station("central", "Central", "minecraft:overworld", new TrackPoint(0, 64, 0),
+				Map.of("*>line", "Välj knappen för Martyrön")));
+
+		assertEquals("Välj knappen för Martyrön", storage.load().stations().get("central").instructions().get("*>line"));
 	}
 
 	private NetworkStorage storageWithConnectedNodes() throws Exception {

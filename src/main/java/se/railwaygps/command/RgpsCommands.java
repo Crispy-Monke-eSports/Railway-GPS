@@ -13,10 +13,12 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.permissions.Permissions;
 import se.railwaygps.model.Junction;
 import se.railwaygps.model.NetworkValidationException;
+import se.railwaygps.model.NetworkValidator;
 import se.railwaygps.model.RailwayNetwork;
+import se.railwaygps.model.Route;
 import se.railwaygps.model.Station;
 import se.railwaygps.model.TrackPoint;
-import se.railwaygps.model.Route;
+import se.railwaygps.model.TransitionInstructions;
 import se.railwaygps.recording.RecordingException;
 import se.railwaygps.recording.RecordingManager;
 import se.railwaygps.recording.RecordingStatus;
@@ -24,6 +26,8 @@ import se.railwaygps.server.RailwayGpsServer;
 
 import java.io.IOException;
 import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 
 public final class RgpsCommands {
 	private static final double DEFAULT_JUNCTION_RADIUS = 25.0;
@@ -63,6 +67,28 @@ public final class RgpsCommands {
 								.then(Commands.literal("rename")
 										.then(Commands.argument("old_id", StringArgumentType.word())
 												.then(Commands.argument("new_id", StringArgumentType.word()).executes(RgpsCommands::renameRoute)))))
+						.then(Commands.literal("instruction")
+								.then(Commands.literal("set")
+										.then(Commands.argument("node_id", StringArgumentType.word())
+												.then(Commands.literal(TransitionInstructions.START)
+														.then(Commands.argument("outgoing_route", StringArgumentType.word())
+																.then(Commands.argument("text", StringArgumentType.greedyString())
+																		.executes(context -> setInstruction(context, TransitionInstructions.START)))))
+												.then(Commands.argument("incoming_route", StringArgumentType.word())
+														.then(Commands.argument("outgoing_route", StringArgumentType.word())
+																.then(Commands.argument("text", StringArgumentType.greedyString())
+																		.executes(RgpsCommands::setInstruction))))))
+								.then(Commands.literal("remove")
+										.then(Commands.argument("node_id", StringArgumentType.word())
+												.then(Commands.literal(TransitionInstructions.START)
+														.then(Commands.argument("outgoing_route", StringArgumentType.word())
+																.executes(context -> removeInstruction(context, TransitionInstructions.START))))
+												.then(Commands.argument("incoming_route", StringArgumentType.word())
+														.then(Commands.argument("outgoing_route", StringArgumentType.word())
+																.executes(RgpsCommands::removeInstruction)))))
+								.then(Commands.literal("list")
+										.then(Commands.argument("node_id", StringArgumentType.word())
+												.executes(RgpsCommands::listInstructions))))
 						.then(Commands.literal("reload").executes(RgpsCommands::reload))
 		));
 	}
@@ -228,6 +254,9 @@ public final class RgpsCommands {
 		if (!state.network().routes().containsKey(id)) {
 			return fail(source, "Unknown route '" + id + "'");
 		}
+		if (instructionReferencesRoute(state.network(), id)) {
+			return fail(source, "Route '" + id + "' is used by a node instruction; remove that instruction first");
+		}
 		try {
 			state.storage().removeRoute(id);
 			state.reload();
@@ -250,6 +279,9 @@ public final class RgpsCommands {
 		if (state.network().routes().containsKey(newId)) {
 			return fail(source, "Route '" + newId + "' already exists");
 		}
+		if (instructionReferencesRoute(state.network(), oldId)) {
+			return fail(source, "Route '" + oldId + "' is used by a node instruction; remove that instruction before renaming it");
+		}
 		try {
 			state.storage().renameRoute(route, newId);
 			state.reload();
@@ -258,6 +290,119 @@ public final class RgpsCommands {
 		} catch (IOException | NetworkValidationException | IllegalArgumentException exception) {
 			return fail(source, "Could not rename route: " + exception.getMessage());
 		}
+	}
+
+	private static int setInstruction(CommandContext<CommandSourceStack> context) {
+		return setInstruction(context, StringArgumentType.getString(context, "incoming_route"));
+	}
+
+	private static int setInstruction(CommandContext<CommandSourceStack> context, String incomingId) {
+		CommandSourceStack source = context.getSource();
+		String nodeId = StringArgumentType.getString(context, "node_id");
+		String outgoingId = StringArgumentType.getString(context, "outgoing_route");
+		String instruction = StringArgumentType.getString(context, "text").trim();
+		RailwayGpsServer state = RailwayGpsServer.get(source.getServer());
+		RailwayNetwork network = state.network();
+		String error = validateInstruction(network, nodeId, incomingId, outgoingId, instruction);
+		if (error != null) {
+			return fail(source, error);
+		}
+
+		Map<String, String> instructions = new TreeMap<>(network.nodeInstructions(nodeId));
+		instructions.put(TransitionInstructions.key(incomingId, outgoingId), instruction);
+		try {
+			updateNode(state, nodeId, instructions);
+			state.reload();
+			source.sendSuccess(() -> Component.literal("Saved instruction at '" + nodeId + "': " + instruction), true);
+			return Command.SINGLE_SUCCESS;
+		} catch (IOException | NetworkValidationException | IllegalArgumentException exception) {
+			return fail(source, "Could not save instruction: " + exception.getMessage());
+		}
+	}
+
+	private static int removeInstruction(CommandContext<CommandSourceStack> context) {
+		return removeInstruction(context, StringArgumentType.getString(context, "incoming_route"));
+	}
+
+	private static int removeInstruction(CommandContext<CommandSourceStack> context, String incomingId) {
+		CommandSourceStack source = context.getSource();
+		String nodeId = StringArgumentType.getString(context, "node_id");
+		String outgoingId = StringArgumentType.getString(context, "outgoing_route");
+		RailwayGpsServer state = RailwayGpsServer.get(source.getServer());
+		if (!state.network().containsNode(nodeId)) {
+			return fail(source, "Unknown node '" + nodeId + "'");
+		}
+		Map<String, String> instructions = new TreeMap<>(state.network().nodeInstructions(nodeId));
+		String key = TransitionInstructions.key(incomingId, outgoingId);
+		if (instructions.remove(key) == null) {
+			return fail(source, "No instruction '" + key + "' exists at node '" + nodeId + "'");
+		}
+		try {
+			updateNode(state, nodeId, instructions);
+			state.reload();
+			source.sendSuccess(() -> Component.literal("Removed instruction '" + key + "' from '" + nodeId + "'"), true);
+			return Command.SINGLE_SUCCESS;
+		} catch (IOException | NetworkValidationException | IllegalArgumentException exception) {
+			return fail(source, "Could not remove instruction: " + exception.getMessage());
+		}
+	}
+
+	private static int listInstructions(CommandContext<CommandSourceStack> context) {
+		CommandSourceStack source = context.getSource();
+		String nodeId = StringArgumentType.getString(context, "node_id");
+		RailwayNetwork network = RailwayGpsServer.get(source.getServer()).network();
+		if (!network.containsNode(nodeId)) {
+			return fail(source, "Unknown node '" + nodeId + "'");
+		}
+		Map<String, String> instructions = network.nodeInstructions(nodeId);
+		if (instructions.isEmpty()) {
+			source.sendSuccess(() -> Component.literal("No custom instructions at '" + nodeId + "'"), false);
+			return Command.SINGLE_SUCCESS;
+		}
+		source.sendSuccess(() -> Component.literal("Custom instructions at '" + nodeId + "':"), false);
+		instructions.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(entry ->
+				source.sendSuccess(() -> Component.literal("  " + entry.getKey() + ": " + entry.getValue()), false));
+		return Command.SINGLE_SUCCESS;
+	}
+
+	private static String validateInstruction(RailwayNetwork network, String nodeId, String incomingId,
+			String outgoingId, String text) {
+		if (!network.containsNode(nodeId)) {
+			return "Unknown node '" + nodeId + "'";
+		}
+		if (text.isEmpty() || text.length() > 256) {
+			return "Instruction text must contain 1 to 256 characters";
+		}
+		Route outgoing = network.routes().get(outgoingId);
+		if (outgoing == null || !NetworkValidator.canDepart(outgoing, nodeId)) {
+			return "Route '" + outgoingId + "' cannot depart from node '" + nodeId + "'";
+		}
+		if (!TransitionInstructions.START.equals(incomingId)) {
+			Route incoming = network.routes().get(incomingId);
+			if (incoming == null || !NetworkValidator.canArrive(incoming, nodeId)) {
+				return "Route '" + incomingId + "' cannot arrive at node '" + nodeId + "'";
+			}
+		}
+		return null;
+	}
+
+	private static void updateNode(RailwayGpsServer state, String nodeId, Map<String, String> instructions) throws IOException {
+		Station station = state.network().stations().get(nodeId);
+		if (station != null) {
+			state.storage().updateStation(new Station(station.id(), station.name(), station.dimension(), station.position(), instructions));
+			return;
+		}
+		Junction junction = state.network().junctions().get(nodeId);
+		state.storage().updateJunction(new Junction(
+				junction.id(), junction.name(), junction.dimension(), junction.position(), junction.radius(), instructions));
+	}
+
+	private static boolean instructionReferencesRoute(RailwayNetwork network, String routeId) {
+		return java.util.stream.Stream.concat(network.stations().keySet().stream(), network.junctions().keySet().stream())
+				.flatMap(node -> network.nodeInstructions(node).keySet().stream())
+				.map(TransitionInstructions::parse)
+				.flatMap(java.util.Optional::stream)
+				.anyMatch(transition -> routeId.equals(transition.incomingRoute()) || routeId.equals(transition.outgoingRoute()));
 	}
 
 	private static int fail(CommandSourceStack source, String message) {

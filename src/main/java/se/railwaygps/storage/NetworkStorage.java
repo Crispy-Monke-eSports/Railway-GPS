@@ -65,6 +65,14 @@ public final class NetworkStorage {
 		writeNew(junctionsDirectory, junction.id(), junction);
 	}
 
+	public void updateStation(Station station) throws IOException {
+		writeExisting(stationsDirectory, station.id(), station);
+	}
+
+	public void updateJunction(Junction junction) throws IOException {
+		writeExisting(junctionsDirectory, junction.id(), junction);
+	}
+
 	public void createRoute(Route route) throws IOException {
 		writeNew(routesDirectory, route.id(), route);
 	}
@@ -127,12 +135,27 @@ public final class NetworkStorage {
 			throw new IOException("Object '" + id + "' already exists");
 		}
 
+		writeAtomically(directory, id, value, false);
+	}
+
+	private void writeExisting(Path directory, String id, Object value) throws IOException {
+		validateId(id);
+		ensureDirectories();
+		Path destination = directory.resolve(id + ".json");
+		if (!Files.exists(destination)) {
+			throw new IOException("Object '" + id + "' does not exist");
+		}
+		writeAtomically(directory, id, value, true);
+	}
+
+	private void writeAtomically(Path directory, String id, Object value, boolean replace) throws IOException {
+		Path destination = directory.resolve(id + ".json");
 		Path temporary = Files.createTempFile(directory, id + ".", ".tmp");
 		try {
 			try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
 				gson.toJson(value, writer);
 			}
-			moveAtomically(temporary, destination);
+			moveAtomically(temporary, destination, replace);
 		} finally {
 			Files.deleteIfExists(temporary);
 		}
@@ -145,10 +168,20 @@ public final class NetworkStorage {
 	}
 
 	private static void moveAtomically(Path source, Path destination) throws IOException {
+		moveAtomically(source, destination, false);
+	}
+
+	private static void moveAtomically(Path source, Path destination, boolean replace) throws IOException {
+		StandardCopyOption[] atomicOptions = replace
+				? new StandardCopyOption[]{StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING}
+				: new StandardCopyOption[]{StandardCopyOption.ATOMIC_MOVE};
+		StandardCopyOption[] fallbackOptions = replace
+				? new StandardCopyOption[]{StandardCopyOption.REPLACE_EXISTING}
+				: new StandardCopyOption[]{};
 		try {
-			Files.move(source, destination, StandardCopyOption.ATOMIC_MOVE);
+			Files.move(source, destination, atomicOptions);
 		} catch (AtomicMoveNotSupportedException exception) {
-			Files.move(source, destination);
+			Files.move(source, destination, fallbackOptions);
 		}
 	}
 

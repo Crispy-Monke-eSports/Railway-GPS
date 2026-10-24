@@ -1,0 +1,9 @@
+{
+  "railwaygps.instruction.arrived": "Framme vid destinationen",
+  "railwaygps.instruction.back": "Vänd tillbaka",
+  "railwaygps.instruction.continue": "Fortsätt mot %s",
+  "railwaygps.instruction.left": "Fortsätt åt vänster",
+  "railwaygps.instruction.right": "Fortsätt åt höger",
+  "railwaygps.instruction.straight": "Fortsätt rakt fram",
+  "railwaygps.instruction.uncertain": "Osäker position"
+}

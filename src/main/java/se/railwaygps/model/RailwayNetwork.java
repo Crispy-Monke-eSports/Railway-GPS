@@ -50,4 +50,13 @@ public record RailwayNetwork(
 		Junction junction = junctions.get(id);
 		return junction == null ? id : junction.name();
 	}
+
+	public Map<String, String> nodeInstructions(String id) {
+		Station station = stations.get(id);
+		if (station != null) {
+			return station.instructions();
+		}
+		Junction junction = junctions.get(id);
+		return junction == null ? Map.of() : junction.instructions();
+	}
 }

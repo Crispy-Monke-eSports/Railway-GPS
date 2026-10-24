@@ -1,0 +1,9 @@
+{
+  "railwaygps.instruction.arrived": "Destination reached",
+  "railwaygps.instruction.back": "Turn back",
+  "railwaygps.instruction.continue": "Continue toward %s",
+  "railwaygps.instruction.left": "Continue left",
+  "railwaygps.instruction.right": "Continue right",
+  "railwaygps.instruction.straight": "Continue straight",
+  "railwaygps.instruction.uncertain": "Position uncertain"
+}
