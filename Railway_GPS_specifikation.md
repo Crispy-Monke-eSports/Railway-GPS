@@ -10,7 +10,7 @@ Den här specifikationen beskriver den önskade lösningen utan krav på bakåtk
 
 **Fastställda produktbeslut (2026-10-25):**
 - **Tre enkla användarbegrepp:** stationer (enda destinationerna), rödljus (vägval i en black box) och namn på valfria rälssträckor (t.ex. Riksettan och Centralbron). **Ingen separat terminaltyp, inget plattformssystem och inga extra obligatoriska stationsobjekt.**
-- **Station:** ett namngivet stoppställe direkt på rälsen, där spåret tar slut eller där vagnen kan stanna och sedan fortsätta/vända. Ankomst vid rätt stoppunkt/stoppzon på rätt spår bekräftas **även när vagnen rullar**. Visa **Framme** tills spelaren lämnar minecarten; avsluta då navigeringen automatiskt.
+- **Station:** ett namngivet stoppställe direkt på rälsen, där spåret tar slut eller där vagnen kan stanna och sedan fortsätta/vända. **Stationsnamn måste vara unika på hela servern, även mellan dimensioner** (jämför efter trimning utan skillnad på stora/små bokstäver). Ankomst vid rätt stoppunkt/stoppzon på rätt spår bekräftas **även när vagnen rullar**. Visa **Framme** tills spelaren lämnar minecarten; avsluta då navigeringen automatiskt.
 - **Osäker position:** visa destination och **Osäker position**, men **inga sväng- eller knappinstruktioner** förrän rätt spår identifierats.
 - **Survey:** starta var som helst på rälsen; hela inspelningen får publiceras **direkt och atomiskt** vid `finish` bara när anslutningen till det registrerade nätet och övrig validering är säkra. Ingen obligatorisk manuell publiceringsbekräftelse.
 - **Parallella spårpar:** geometribaserade förslag, alltid **uttryckligt godkännande från administratör**; annars förblir spåren självständiga.
@@ -18,6 +18,10 @@ Den här specifikationen beskriver den önskade lösningen utan krav på bakåtk
 - **Administratörsinstruktioner:** visas **ordagrant**, oberoende av spelarens språk; endast inbyggda standardtexter översätts.
 - **Behörigheter:** separata serverrättigheter för inspektion, namngivning, inspelning samt administration/publicering.
 - **Rödljus:** endast in-/utgående spår, verifierade vägval och instruktioner. Ingen intern räls, redstone-modell eller genomfartskostnad.
+- **Destination före ombordstigning:** spelaren får välja en station i förväg. Valet väntar tills spelaren sitter i en minecart på säkert identifierad registrerad räls; **först då startar navigeringen och ruttberäkningen**. Inga väganvisningar till fots.
+- **Avstigning:** **all** avstigning avslutar en aktiv navigation omedelbart, även **före** ankomst; automatisk återupptagning ska inte ske.
+- **Rödljusinstruktionens tidpunkt:** visa vägvalet när ett rödljus **börjar närma sig**, behåll instruktionen under passagen genom dess zon och avsluta/byta den när rätt utgående räls har bekräftats; vid osäker position gäller alltid regeln om att dölja instruktioner.
+- **Ruttval:** välj automatiskt den **kortaste verifierade, giltiga rutten** utifrån återstående fysisk rälssträcka, med respekt för riktning och tillåtna rödljusövergångar. Namngivna leder prioriteras inte och spelaren behöver inte välja mellan alternativa rutter.
 
 ## 1. Vision
 
@@ -141,9 +145,9 @@ Krav:
 
 En **station** är en namngiven punkt eller liten stoppzon **direkt på en fysisk räls**. Det kan vara ett spårslut eller ett genomgående spår där minecarten kan stanna och sedan fortsätta eller vända. Stationen kräver **inte** någon plattform, stationsbyggnad, flera spår eller ett stort stationsområde. **Ingen separat terminaltyp används:** ett spårslut är också en station.
 
-Varje station har bara det som behövs för navigation: namn, tekniskt ID, dimension samt en stoppunkt/stoppzon kopplad till **rätt fysisk räls**. Position och rälsidentitet ska skilja den från en eventuell närliggande parallell räls.
+Varje station har bara det som behövs för navigation: **unikt visningsnamn**, tekniskt ID, dimension samt en stoppunkt/stoppzon kopplad till **rätt fysisk räls**. Position och rälsidentitet ska skilja den från en eventuell närliggande parallell räls. **Två stationer får inte ha samma visningsnamn någonstans på servern**, även om de ligger i olika dimensioner. Vid skapande, byte av namn, import och nätverksvalidering avvisas namnkonflikter utan att någon station döps om automatiskt. Namn jämförs efter trimning och utan skillnad på stora/små bokstäver (t.ex. `Central` och ` central ` räknas som samma namn).
 
-**Endast stationer är valbara destinationer.** GPS:en markerar **Framme** så snart minecarten med säker färdhistorik når rätt station/stoppzon på rätt spår; ett fullständigt stopp eller låg hastighet krävs inte. När **Framme** väl har bekräftats ska texten ligga kvar även om vagnen fortsätter röra sig. **När spelaren kliver ur minecarten avslutas navigeringen automatiskt och HUD:en försvinner.** En förbipassage på fel spår får inte utlösa ankomst.
+**Endast stationer är valbara destinationer.** Spelaren kan välja destination **innan ombordstigning**; valet är då väntande och ingen aktiv rutt eller svänginstruktion visas. När spelaren sitter i en minecart på säkerställd registrerad räls beräknas och startas resan automatiskt från den faktiska rälsen. Om rälsen/riktningen inte kan fastställas startar ingen gissad rutt. GPS:en markerar **Framme** så snart minecarten med säker färdhistorik når rätt station/stoppzon på rätt spår; ett fullständigt stopp eller låg hastighet krävs inte. När **Framme** väl har bekräftats ska texten ligga kvar även om vagnen fortsätter röra sig. **Vid all avstigning, även före ankomst, avslutas aktiv navigation omedelbart och navigations-HUD:en försvinner.** Ny resa kräver nytt destinationsval. En förbipassage på fel spår får inte utlösa ankomst.
 
 ### 5.3 Korsningar och rödljus
 
@@ -279,7 +283,6 @@ control_points
 zones
 zone_boxes
 stations
-platforms
 junctions
 ports
 track_sections
@@ -508,7 +511,7 @@ Grafkanter är:
 
 Detta förhindrar att alla spår vid samma korsning automatiskt betraktas som ömsesidigt anslutna.
 
-Ruttberäkningen använder **längden på den verifierade fysiska rälsen utanför rödljuszoner**. Ett rödljusbidrag är **noll**: ingen uppskattad väntetid, manuell korsningskostnad, övergångsvikt eller extra straffkostnad behövs. Avstängda spår och övergångar är **otillåtna**, inte dyrare alternativ.
+Ruttberäkningen väljer **automatiskt den kortaste giltiga vägen** efter **återstående längd på verifierad fysisk räls utanför rödljuszoner**, från spelarens verkliga position och färdriktning när resan startar. På det första spåret räknas **bara den del som återstår framåt**, inte spårets hela längd. Endast spår i tillåten riktning och uttryckligen verifierade rödljusövergångar får användas. Ett rödljusbidrag är **noll**: ingen uppskattad väntetid, manuell korsningskostnad, övergångsvikt eller extra straffkostnad behövs. Namngivna vägar prioriteras **inte** framför kortare rutter. Avstängda spår och övergångar är **otillåtna**, inte dyrare alternativ. Spelaren behöver **inte** välja mellan flera förslag; likvärdiga kortaste rutter kan avgöras deterministiskt utan extra meny.
 
 Dijkstra eller A* kan användas. Ruttresultatet är en följd av specifika riktade passager och övergångar, vilket gör att klienten vet exakt vilket av två parallella spår som avses.
 
@@ -535,7 +538,7 @@ På bekräftat spår
 → Ny passage bekräftad
 ```
 
-Om spelaren tar en annan verifierad övergång än den planerade räknas resvägen om. Om läget är tvetydigt visas **destinationen och Osäker position**, medan alla vägvals-/sväng-/knappinstruktioner döljs tills rätt spår kan identifieras. Efter bekräftad ankomst visas **Framme** fram till avstigning; då stoppas navigationen.
+Om spelaren tar en annan verifierad övergång än den planerade räknas automatiskt den **kortaste återstående giltiga rutten** om från bekräftad aktuell rälsposition. Om läget är tvetydigt visas **destinationen och Osäker position**, medan alla vägvals-/sväng-/knappinstruktioner döljs tills rätt spår kan identifieras. **Vid avstigning upphör aktiv navigering direkt, även före ankomst.** Efter bekräftad ankomst visas **Framme** fram till avstigning; då avslutas navigeringen.
 
 ## 11. Navigationsinstruktioner och HUD
 
@@ -561,7 +564,9 @@ Den sista stabila vektorn på inkommande spår jämförs med den första stabila
 - tillbaka;
 - osäkert.
 
-Geometrin ska hämtas från den verkliga inspelade rälsen, inte från raka linjer mellan kontrollpunkternas mittpunkter.
+Geometrin ska hämtas från den verkliga inspelade rälsen **utanför rödljusets black-box-zon**, inte från raka linjer mellan kontrollpunkternas mittpunkter.
+
+**Visningstidpunkt:** välj rätt vägvals-/knappinstruktion för **nästa rödljus** när spelaren på sin aktuella bekräftade räls **börjar närma sig** rödljuset (baserat på återstående spåravstånd, med en konsekvent justerbar förvarningsgräns). Visa den inte för tidigt längs hela linjen eller först när vagnen redan har gått in i zonen. **Behåll samma relevanta instruktion inne i rödljusets zon** fram tills faktiskt utgående spår har bekräftats. Vid **Osäker position** ska instruktionen döljas även om rödljuset är nära eller vagnen är inne i zonen. Exakta avståndsvärden är en teknisk inställning, inte ett krav på användarval.
 
 ### 11.2 Instruktionsprioritet
 
@@ -654,7 +659,7 @@ När ett objekt väljs ska det kunna:
 
 Railway GPS öppnas med en konfigurerbar tangent (`R` som standard). Vanliga spelare får en sökbar
 destinationslista med **enbart stationer** (spårslut ingår som stationer; rödljus är aldrig destinationer) samt tydliga knappar för att
-starta eller stoppa navigeringen. Tekniska ID:n behöver inte användas.
+välja destination eller avsluta aktiv/väntande navigation. Tekniska ID:n behöver inte användas. **Destinationsval till fots sparas som väntande val; aktiv vägledning startar automatiskt först i en minecart på säkert matchad registrerad räls.** Vid all avstigning avbryts aktiv navigation, utan automatisk återupptagning.
 
 Behöriga användare får de **inspektions-, namn-, inspelnings- och administrationsverktyg** som deras separata serverrättigheter tillåter. Administratörer får dessutom knappen **Adminverktyg**. Den öppnar redigeringsläget, som visar
 aktuella musåtgärder och vald geometri i en HUD, i samma anda som verktygspaletten i SimpleBlueprints. För
@@ -822,11 +827,13 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 - Stabil map matching mellan parallella spår.
 - Omplanering och osäkerhetsläge.
 - Automatiska och manuella instruktioner.
-- Startinstruktionen beräknas från den fysiska inkommande och utgående rälsen i kontrollzonen. Spelarens
-  kamerariktning får aldrig användas för att avgöra vänster eller höger; saknas säker rälsmatchning visas en
-  neutral fortsätt-instruktion.
+- Startinstruktionen beräknas från den fysiska inkommande och utgående rälsen **utanför rödljusets zon**. Spelarens kamerariktning får aldrig användas för att avgöra vänster eller höger; **saknas säker rälsmatchning döljs sväng-/knappinstruktionen och Osäker position visas**.
 - Lokaliserad HUD med **bokstavligt återgivna anpassade instruktioner**, **högst en huvudled plus ett lokalt namn**, och osäkerhetsstatus **utan sväng-/knappinstruktioner**.
-- **Sökning och destinationsval endast för stationer; bekräftad ankomst vid rätt räls/stoppzon även under rörelse; behåll `Framme` tills avstigning och avsluta då navigeringen automatiskt.**
+- **Sökning och destinationsval endast för stationer; namn är unika serverövergripande utan skiftlägesberoende.**
+- **Destinationsval i förväg tillåts; aktiv GPS startar först efter ombordstigning på säkert registrerad räls. All avstigning avslutar navigation, även före ankomst.**
+- **Automatiskt kortaste giltiga rutt, efter återstående verklig rälsträcka; ingen vägväljarmeny eller prioritet för namngivna leder.**
+- **Visa rödljusets vägval när det närmar sig, behåll det inne i zonen tills utfart bekräftats; dölj det alltid vid osäkerhet.**
+- **Bekräftad ankomst vid rätt räls/stoppzon även under rörelse; behåll `Framme` tills avstigning.**
 
 ### Fas 8 – JourneyMap och administrationspolering
 
@@ -862,10 +869,15 @@ En första komplett version av målarkitekturen ska demonstrera att:
 21. En behörig spelare kan **starta survey var som helst på rälsen**, och publicering lyckas endast vid säker nätanslutning och full validering.
 22. HUD visar högst **en huvudled och ett lokalt rälssträckenamn**; administratörens anpassade instruktioner visas **ordagrant**, oberoende av språk.
 23. **Framme** visas kvar tills spelaren **stiger ur minecarten**, då navigeringen avslutas automatiskt.
+24. Spelaren får **välja station till fots**; ingen aktiv rutt eller körinstruktion startar förrän hen sitter i en minecart på säkert identifierad registrerad räls.
+25. **All avstigning** avslutar aktiv navigering omedelbart, även **före** ankomst, och senare ombordstigning återupptar inte resan automatiskt.
+26. Rödljusets vägvals-/knappinstruktion börjar visas **under infarten när rödljuset närmar sig**, ligger kvar **inne i zonen** tills faktisk utgång bekräftas, och döljs vid osäker position.
+27. GPS:en väljer **utan extra fråga den kortaste verifierade rutten** utifrån kvarvarande fysisk rälslängd och tillåtna riktade övergångar; namngivna leder ger ingen förtur och rödljus ger ingen extrakostnad.
+28. **Alla stationsvisningsnamn är unika på hela servern**, oberoende av dimension och skillnad i stora/små bokstäver; försök att skapa, byta namn till eller importera ett duplikat avvisas.
 
 ## 20. Återstående detaljbeslut
 
-Följande **tekniska detaljer**, som inte ändrar de fem fastställda produktbesluten, behöver prototypas eller beslutas under implementationen:
+Följande **tekniska detaljer**, som inte får ändra de fastställda produktbesluten, behöver prototypas eller beslutas under implementationen:
 
 1. Exakt tolerans och algoritm för **geometriskt grundade** spårparningsförslag (alltid manuell bekräftelse).
 2. Exakt format för geometri och detaljnivåer.
@@ -885,6 +897,6 @@ Railway GPS ska modellera verklig räls, inte bara namngivna linjer mellan punkt
 
 Namn är fristående lager. Riksettan kan löpa genom flera rödljus, Centralbron kan omfatta endast den stockmarkerade delen av två parallella spår och namnlösa anslutningar kan fortfarande användas fullt ut. En resa beräknas genom det gemensamma fysiska nätet och duplicerar inte spår för varje destinationskombination.
 
-Klienten ska göra nätet synligt: zoner, spår, riktningar, övergångar, namn, aktiv resväg och valideringsfel ska kunna inspekteras i världen, styrt av separat inspektionsbehörighet. JourneyMap använder samma modell men förblir valfritt. **En fullständigt validerad survey publiceras direkt vid `finish`; inga obligatoriska granskningsutkast krävs.** Oparade parallella spår kan publiceras som separata spår, men spårparning kräver alltid administratörsbekräftelse. Spelarnas destinationer är enbart stationer. Ankomst kräver rätt räls/stoppzon men inte stillastående vagn; **Framme visas tills spelaren kliver ur minecarten**, varpå navigeringen avslutas automatiskt. Osäkert spår döljer alla sväng-/knappinstruktioner, survey får starta var som helst på rälsen med säker nätanslutning, och HUD visar högst en huvudled plus ett lokalt namn.
+Klienten ska göra nätet synligt: zoner, spår, riktningar, övergångar, namn, aktiv resväg och valideringsfel ska kunna inspekteras i världen, styrt av separat inspektionsbehörighet. Spelaren får förvälja en station före ombordstigning, navigeringen startar först i minecart på säkert registrerad räls och all avstigning avslutar aktiv resa. Kortaste giltiga rutt väljs automatiskt, instruktionerna för ett rödljus syns vid infarten och under passage, och stationsnamn måste vara unika på hela servern. JourneyMap använder samma modell men förblir valfritt. **En fullständigt validerad survey publiceras direkt vid `finish`; inga obligatoriska granskningsutkast krävs.** Oparade parallella spår kan publiceras som separata spår, men spårparning kräver alltid administratörsbekräftelse. Spelarnas destinationer är enbart stationer. Ankomst kräver rätt räls/stoppzon men inte stillastående vagn; **Framme visas tills spelaren kliver ur minecarten**, varpå navigeringen avslutas automatiskt. Osäkert spår döljer alla sväng-/knappinstruktioner, survey får starta var som helst på rälsen med säker nätanslutning, och HUD visar högst en huvudled plus ett lokalt namn.
 
 Moddet förblir vägledande och icke-ingripande. Det berättar vad spelaren ska göra men styr aldrig minecart, knappar, redstone eller växlar.
