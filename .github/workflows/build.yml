@@ -1,0 +1,47 @@
+name: Build Railway GPS
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v6
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: microsoft
+          java-version: "25"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build and test mod
+        run: ./gradlew build
+
+      - name: Upload mod jar
+        uses: actions/upload-artifact@v7
+        with:
+          name: railway-gps-${{ github.sha }}
+          path: |
+            build/libs/railway-gps-*.jar
+            !build/libs/*-sources.jar
+          if-no-files-found: error
+          retention-days: 30

@@ -68,6 +68,8 @@ For a development client:
 
 Generated mod jars are written to `build/libs/`.
 
+Every push to `main` is also built and tested by GitHub Actions. The distributable jar can be downloaded from that workflow run's **Artifacts** section as `railway-gps-<commit-sha>`.
+
 ## JSON data
 
 Data is stored below the active world directory:
