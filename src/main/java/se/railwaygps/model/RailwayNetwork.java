@@ -41,4 +41,13 @@ public record RailwayNetwork(
 		Junction junction = junctions.get(id);
 		return junction == null ? 16.0 : junction.radius();
 	}
+
+	public String nodeName(String id) {
+		Station station = stations.get(id);
+		if (station != null) {
+			return station.name();
+		}
+		Junction junction = junctions.get(id);
+		return junction == null ? id : junction.name();
+	}
 }

@@ -15,6 +15,7 @@ This repository currently contains the first Phase 1 foundation:
 - Rail-block sampling, travelled-distance measurement, and conservative straight-line geometry simplification.
 - Dijkstra shortest-path planning with directed, bidirectional, and parallel route support.
 - Versioned server-to-client network snapshots, sent only to Railway GPS-capable clients and refreshed after valid network changes.
+- Client-side destination selection, route following, basic track map matching, and a minecart-only navigation HUD.
 
 Recording commands:
 
@@ -30,6 +31,16 @@ Recording commands:
 ```
 
 Recording must start within the source node's radius and finish within the destination node's radius. Stations currently use a 16-block radius; junctions use their configured `radius`. Finishing is always explicit. Recorded routes are directed by default.
+
+Players with Railway GPS installed can begin the first navigation prototype near a registered node:
+
+```mcfunction
+/rgpsnav start <destination_id>
+/rgpsnav status
+/rgpsnav stop
+```
+
+The HUD intentionally gives the neutral instruction “Continue toward …”. Left/right instructions are deferred until junction transitions can be verified or configured explicitly.
 
 ## Requirements
 
