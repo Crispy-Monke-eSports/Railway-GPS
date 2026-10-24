@@ -1,6 +1,6 @@
 {
-  "railwaygps.hud.next": "Next: %s  •  %d blocks",
-  "railwaygps.hud.remaining": "Remaining: %d blocks  •  %d connections",
+  "railwaygps.hud.next": "Next: %s  •  %s blocks",
+  "railwaygps.hud.remaining": "Remaining: %s blocks  •  %s connections",
   "railwaygps.hud.title": "RAILWAY GPS  •  %s",
   "railwaygps.instruction.arrived": "Destination reached",
   "railwaygps.instruction.back": "Turn back",
@@ -14,7 +14,7 @@
   "railwaygps.nav.start.not_near_node": "Start navigation near a registered station or junction",
   "railwaygps.nav.start.started": "Navigating to %s",
   "railwaygps.nav.start.unknown_destination": "Unknown destination '%s'",
-  "railwaygps.nav.status": "Destination: %s, next: %s, %d blocks remaining (%s)",
+  "railwaygps.nav.status": "Destination: %s, next: %s, %s blocks remaining (%s)",
   "railwaygps.nav.status.arrived": "arrived",
   "railwaygps.nav.status.on_route": "on route",
   "railwaygps.nav.status.uncertain": "uncertain position",

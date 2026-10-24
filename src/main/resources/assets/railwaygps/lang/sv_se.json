@@ -1,6 +1,6 @@
 {
-  "railwaygps.hud.next": "Nästa: %s  •  %d block",
-  "railwaygps.hud.remaining": "Kvar: %d block  •  %d anslutningar",
+  "railwaygps.hud.next": "Nästa: %s  •  %s block",
+  "railwaygps.hud.remaining": "Kvar: %s block  •  %s anslutningar",
   "railwaygps.hud.title": "RAILWAY GPS  •  %s",
   "railwaygps.instruction.arrived": "Framme vid destinationen",
   "railwaygps.instruction.back": "Vänd tillbaka",
@@ -14,7 +14,7 @@
   "railwaygps.nav.start.not_near_node": "Starta navigering nära en registrerad station eller knutpunkt",
   "railwaygps.nav.start.started": "Navigerar till %s",
   "railwaygps.nav.start.unknown_destination": "Okänd destination '%s'",
-  "railwaygps.nav.status": "Destination: %s, nästa: %s, %d block kvar (%s)",
+  "railwaygps.nav.status": "Destination: %s, nästa: %s, %s block kvar (%s)",
   "railwaygps.nav.status.arrived": "framme",
   "railwaygps.nav.status.on_route": "på rätt spår",
   "railwaygps.nav.status.uncertain": "osäker position",

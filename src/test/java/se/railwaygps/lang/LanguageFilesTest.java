@@ -10,8 +10,10 @@ import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -24,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Verifies that every language file defines the same non-blank keys as every other language file. */
 class LanguageFilesTest {
 	private static final Pattern KEY_PATTERN = Pattern.compile("\"(railwaygps\\.[a-z0-9_.]+)\"");
+	private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("%(\\d+\\$)?s");
 	private static final Type STRING_MAP = new TypeToken<Map<String, String>>() {
 	}.getType();
 
@@ -53,6 +56,42 @@ class LanguageFilesTest {
 			assertTrue(isDefined(english, key), "Missing en_us translation for " + key);
 			assertTrue(isDefined(swedish, key), "Missing sv_se translation for " + key);
 		}
+	}
+
+	@Test
+	void translationPlaceholdersUseMinecraftSupportedSyntax() throws Exception {
+		for (Map.Entry<String, String> entry : load("en_us").entrySet()) {
+			assertPlaceholdersSupported("en_us", entry);
+		}
+		for (Map.Entry<String, String> entry : load("sv_se").entrySet()) {
+			assertPlaceholdersSupported("sv_se", entry);
+		}
+	}
+
+	@Test
+	void placeholderSequencesMatchAcrossLanguages() throws Exception {
+		Map<String, String> english = load("en_us");
+		Map<String, String> swedish = load("sv_se");
+		for (String key : english.keySet()) {
+			assertEquals(placeholders(english.get(key)), placeholders(swedish.get(key)),
+					"Placeholder mismatch between en_us and sv_se for " + key);
+		}
+	}
+
+	/** Minecraft translatable components only support %s and %n$s, not Java format specifiers such as %d. */
+	private static void assertPlaceholdersSupported(String language, Map.Entry<String, String> entry) {
+		String unsupportedStripped = PLACEHOLDER_PATTERN.matcher(entry.getValue()).replaceAll("");
+		assertFalse(unsupportedStripped.contains("%"), language + " value for " + entry.getKey()
+				+ " uses an unsupported placeholder (only %s and %n$s are supported): " + entry.getValue());
+	}
+
+	private static List<String> placeholders(String value) {
+		Matcher matcher = PLACEHOLDER_PATTERN.matcher(value);
+		List<String> placeholders = new ArrayList<>();
+		while (matcher.find()) {
+			placeholders.add(matcher.group(1) == null ? "" : matcher.group(1));
+		}
+		return placeholders;
 	}
 
 	private static boolean isDefined(Map<String, String> language, String key) {
