@@ -99,6 +99,7 @@ public final class RailwayGpsServer {
 	public void saveV2(RailwayNetworkV2 updated) throws IOException, NetworkValidationException {
 		storageV2.save(updated);
 		this.networkV2 = updated;
+		RailwayGpsNetworking.broadcastV2(server, updated);
 	}
 
 	/** Loads into a temporary model and only swaps the active network after full validation. */
