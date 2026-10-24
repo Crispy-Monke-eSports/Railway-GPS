@@ -6,6 +6,7 @@ import se.railwaygps.RailwayGps;
 import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.model.RailwayNetwork;
 import se.railwaygps.recording.RecordingManager;
+import se.railwaygps.network.RailwayGpsNetworking;
 import se.railwaygps.storage.NetworkStorage;
 
 import java.io.IOException;
@@ -17,9 +18,11 @@ public final class RailwayGpsServer {
 
 	private final NetworkStorage storage;
 	private final RecordingManager recordings;
+	private final MinecraftServer server;
 	private RailwayNetwork network = RailwayNetwork.EMPTY;
 
 	private RailwayGpsServer(MinecraftServer server) {
+		this.server = server;
 		this.storage = new NetworkStorage(server.getWorldPath(LevelResource.ROOT));
 		this.recordings = new RecordingManager(this);
 	}
@@ -66,6 +69,7 @@ public final class RailwayGpsServer {
 	public RailwayNetwork reload() throws IOException, NetworkValidationException {
 		RailwayNetwork candidate = storage.load();
 		this.network = candidate;
+		RailwayGpsNetworking.broadcast(server, candidate);
 		return candidate;
 	}
 }

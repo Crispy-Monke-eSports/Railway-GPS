@@ -14,6 +14,7 @@ This repository currently contains the first Phase 1 foundation:
 - Strict recording cancellation on dismount, cart swap/destruction, death, disconnect, or dimension change.
 - Rail-block sampling, travelled-distance measurement, and conservative straight-line geometry simplification.
 - Dijkstra shortest-path planning with directed, bidirectional, and parallel route support.
+- Versioned server-to-client network snapshots, sent only to Railway GPS-capable clients and refreshed after valid network changes.
 
 Recording commands:
 

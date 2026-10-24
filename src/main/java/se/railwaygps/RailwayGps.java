@@ -6,6 +6,7 @@ import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import se.railwaygps.command.RgpsCommands;
+import se.railwaygps.network.RailwayGpsNetworking;
 import se.railwaygps.server.RailwayGpsServer;
 
 public final class RailwayGps implements ModInitializer {
@@ -15,6 +16,7 @@ public final class RailwayGps implements ModInitializer {
 	@Override
 	public void onInitialize() {
 		RgpsCommands.register();
+		RailwayGpsNetworking.register();
 		ServerLifecycleEvents.SERVER_STARTED.register(RailwayGpsServer::start);
 		ServerLifecycleEvents.SERVER_STOPPED.register(RailwayGpsServer::stop);
 		ServerTickEvents.END_SERVER_TICK.register(server -> RailwayGpsServer.get(server).recordings().tick(server));
