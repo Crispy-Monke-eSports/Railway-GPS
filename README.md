@@ -118,3 +118,26 @@ Stations and junctions may contain an `instructions` object. Keys describe `inco
 ```
 
 The implementation roadmap and product decisions remain in [Railway_GPS_specifikation.md](Railway_GPS_specifikation.md).
+
+## Architecture v2 implementation
+
+Work on the clean-break physical-track architecture has started. Its authoritative document is
+`<world>/railwaygps/network-v2.json` with schema version 2. The v2 loader intentionally does not inspect,
+convert, or migrate the earlier `stations/`, `junctions/`, or `routes/` directories.
+
+The implemented v2 core currently includes compound 3D zones, control points and platforms, multi-track
+sections, directed physical tracks, verified transitions, partial track ranges, labels, validation,
+atomic storage, and point-to-point path selection. Point selection is available to operators with:
+
+```mcfunction
+/rgps label point start
+/rgps label point end
+/rgps label candidates
+/rgps label create <id> <way|bridge|tunnel|district|custom> <candidate> <include_paired> <name...>
+/rgps label cancel
+```
+
+The two points snap to already registered v2 tracks. Every possible branch is returned as a candidate;
+the command never silently chooses an ambiguous branch. Creating the label increments the v2 network
+revision without changing its physical track graph. Native visual selection, v2 survey authoring,
+client synchronization, and navigation cutover are the next implementation stages.

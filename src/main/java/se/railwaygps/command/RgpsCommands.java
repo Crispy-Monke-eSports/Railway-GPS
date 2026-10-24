@@ -1,6 +1,8 @@
 package se.railwaygps.command;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.BoolArgumentType;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -23,6 +25,10 @@ import se.railwaygps.recording.RecordingException;
 import se.railwaygps.recording.RecordingManager;
 import se.railwaygps.recording.RecordingStatus;
 import se.railwaygps.server.RailwayGpsServer;
+import se.railwaygps.v2.model.TrackLabel;
+import se.railwaygps.v2.naming.LabelSelectionManager;
+import se.railwaygps.v2.naming.TrackLabelEditor;
+import se.railwaygps.v2.naming.TrackPathSelector;
 
 import java.io.IOException;
 import java.util.Locale;
@@ -89,6 +95,19 @@ public final class RgpsCommands {
 								.then(Commands.literal("list")
 										.then(Commands.argument("node_id", StringArgumentType.word())
 												.executes(RgpsCommands::listInstructions))))
+						.then(Commands.literal("label")
+								.then(Commands.literal("point")
+										.then(Commands.literal("start").executes(RgpsCommands::markLabelStart))
+										.then(Commands.literal("end").executes(RgpsCommands::markLabelEnd)))
+								.then(Commands.literal("candidates").executes(RgpsCommands::listLabelCandidates))
+								.then(Commands.literal("cancel").executes(RgpsCommands::cancelLabelSelection))
+								.then(Commands.literal("create")
+										.then(Commands.argument("id", StringArgumentType.word())
+												.then(Commands.argument("type", StringArgumentType.word())
+														.then(Commands.argument("candidate", IntegerArgumentType.integer(1))
+																.then(Commands.argument("include_paired", BoolArgumentType.bool())
+																		.then(Commands.argument("name", StringArgumentType.greedyString())
+																				.executes(RgpsCommands::createLabel))))))))
 						.then(Commands.literal("reload").executes(RgpsCommands::reload))
 		));
 	}
@@ -405,6 +424,81 @@ public final class RgpsCommands {
 				.anyMatch(transition -> routeId.equals(transition.incomingRoute()) || routeId.equals(transition.outgoingRoute()));
 	}
 
+	private static int markLabelStart(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		TrackPathSelector.Point point = RailwayGpsServer.get(source.getServer()).labelSelections()
+				.markStart(source.getPlayerOrException());
+		source.sendSuccess(() -> Component.literal("Label start selected at " + format(point)), false);
+		return Command.SINGLE_SUCCESS;
+	}
+
+	private static int markLabelEnd(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		try {
+			TrackLabelEditor.Preview preview = RailwayGpsServer.get(source.getServer()).labelSelections()
+					.markEnd(source.getPlayerOrException());
+			if (!preview.successful()) {
+				return fail(source, preview.error());
+			}
+			source.sendSuccess(() -> Component.literal("Label end selected; " + preview.candidates().size()
+					+ " candidate path(s). Use /rgps label candidates to inspect them."), false);
+			return Command.SINGLE_SUCCESS;
+		} catch (IllegalStateException exception) {
+			return fail(source, exception.getMessage());
+		}
+	}
+
+	private static int listLabelCandidates(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		try {
+			LabelSelectionManager.Session session = RailwayGpsServer.get(source.getServer()).labelSelections()
+					.session(source.getPlayerOrException());
+			if (session.preview() == null || !session.preview().successful()) {
+				return fail(source, "Select a valid end point first");
+			}
+			for (int index = 0; index < session.preview().candidates().size(); index++) {
+				int number = index + 1;
+				TrackPathSelector.Candidate candidate = session.preview().candidates().get(index);
+				String tracks = candidate.ranges().stream().map(range -> range.trackId())
+						.collect(java.util.stream.Collectors.joining(" -> "));
+				source.sendSuccess(() -> Component.literal(
+						"Candidate " + number + " (%.1f blocks): ".formatted(candidate.cost()) + tracks), false);
+			}
+			return Command.SINGLE_SUCCESS;
+		} catch (IllegalStateException exception) {
+			return fail(source, exception.getMessage());
+		}
+	}
+
+	private static int cancelLabelSelection(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		RailwayGpsServer.get(source.getServer()).labelSelections().clear(source.getPlayerOrException());
+		source.sendSuccess(() -> Component.literal("Label selection cancelled"), false);
+		return Command.SINGLE_SUCCESS;
+	}
+
+	private static int createLabel(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		String id = StringArgumentType.getString(context, "id");
+		String name = StringArgumentType.getString(context, "name");
+		int candidate = IntegerArgumentType.getInteger(context, "candidate") - 1;
+		boolean includePaired = BoolArgumentType.getBool(context, "include_paired");
+		TrackLabel.Type type;
+		try {
+			type = TrackLabel.Type.valueOf(StringArgumentType.getString(context, "type").toUpperCase(Locale.ROOT));
+		} catch (IllegalArgumentException exception) {
+			return fail(source, "Unknown label type; use way, bridge, tunnel, district or custom");
+		}
+		try {
+			RailwayGpsServer state = RailwayGpsServer.get(source.getServer());
+			state.labelSelections().create(source.getPlayerOrException(), id, name, type, candidate, includePaired);
+			source.sendSuccess(() -> Component.literal("Created label '" + name.trim() + "' (" + id + ")"), true);
+			return Command.SINGLE_SUCCESS;
+		} catch (IOException | NetworkValidationException | IllegalArgumentException | IllegalStateException exception) {
+			return fail(source, "Could not create label: " + exception.getMessage());
+		}
+	}
+
 	private static int fail(CommandSourceStack source, String message) {
 		source.sendFailure(Component.literal(message == null ? "Unknown Railway GPS error" : message));
 		return 0;
@@ -417,6 +511,10 @@ public final class RgpsCommands {
 
 	private static String format(BlockPos position) {
 		return "%d, %d, %d".formatted(position.getX(), position.getY(), position.getZ());
+	}
+
+	private static String format(TrackPathSelector.Point point) {
+		return "%.1f, %.1f, %.1f in %s".formatted(point.x(), point.y(), point.z(), point.dimension());
 	}
 
 	private static String toDisplayName(String id) {
