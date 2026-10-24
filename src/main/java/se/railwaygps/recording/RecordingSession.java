@@ -3,7 +3,6 @@ package se.railwaygps.recording;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.level.block.BaseRailBlock;
-import net.minecraft.world.phys.Vec3;
 import se.railwaygps.model.TrackPoint;
 
 import java.util.ArrayList;
@@ -21,8 +20,7 @@ final class RecordingSession {
 	private final String routeId;
 	private final long startedAtTick;
 	private final List<TrackPoint> points = new ArrayList<>();
-	private Vec3 previousPosition;
-	private double distance;
+	private final MovementTracker movement;
 
 	RecordingSession(UUID playerId, AbstractMinecart minecart, String dimension, String from, String to, String routeId, long startedAtTick) {
 		this.playerId = playerId;
@@ -32,17 +30,12 @@ final class RecordingSession {
 		this.to = to;
 		this.routeId = routeId;
 		this.startedAtTick = startedAtTick;
-		this.previousPosition = minecart.position();
+		this.movement = new MovementTracker(minecart.getX(), minecart.getY(), minecart.getZ(), MAX_MOVEMENT_PER_TICK);
 		sample(minecart);
 	}
 
 	void sample(AbstractMinecart minecart) {
-		Vec3 position = minecart.position();
-		double movement = position.distanceTo(previousPosition);
-		if (movement <= MAX_MOVEMENT_PER_TICK) {
-			distance += movement;
-		}
-		previousPosition = position;
+		movement.update(minecart.getX(), minecart.getY(), minecart.getZ());
 
 		BlockPos railPosition = minecart.getCurrentBlockPosOrRailBelow();
 		if (!BaseRailBlock.isRail(minecart.level(), railPosition)) {
@@ -55,7 +48,7 @@ final class RecordingSession {
 	}
 
 	RecordingStatus status(long currentTick) {
-		return new RecordingStatus(routeId, from, to, points.size(), distance, currentTick - startedAtTick);
+		return new RecordingStatus(routeId, from, to, points.size(), distance(), currentTick - startedAtTick);
 	}
 
 	UUID playerId() {
@@ -83,7 +76,12 @@ final class RecordingSession {
 	}
 
 	double distance() {
-		return distance;
+		return movement.distance();
+	}
+
+	/** True when the minecart position jumped between two samples, which makes the recording unusable. */
+	boolean hasPositionJump() {
+		return movement.hasJumped();
 	}
 
 	List<TrackPoint> points() {

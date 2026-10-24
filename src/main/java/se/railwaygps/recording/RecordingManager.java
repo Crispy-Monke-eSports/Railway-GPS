@@ -91,6 +91,10 @@ public final class RecordingManager {
 			throw new RecordingException("The minecart is not within the destination node's radius");
 		}
 		session.sample(minecart);
+		if (session.hasPositionJump()) {
+			cancelInvalid(player, "Recording cancelled because the minecart position jumped unexpectedly");
+			throw new RecordingException("Recording was cancelled without saving");
+		}
 		List<TrackPoint> points = TrackGeometry.simplify(session.points());
 		if (points.size() < 2) {
 			throw new RecordingException("Not enough rail geometry was recorded; continue driving before finishing");
@@ -124,6 +128,9 @@ public final class RecordingManager {
 			}
 			AbstractMinecart minecart = (AbstractMinecart) player.getVehicle();
 			session.sample(minecart);
+			if (session.hasPositionJump()) {
+				cancelInvalid(player, "Recording cancelled because the minecart position jumped unexpectedly");
+			}
 		}
 	}
 
