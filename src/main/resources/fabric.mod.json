@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "railwaygps",
+  "version": "${version}",
+  "name": "Railway GPS",
+  "description": "Non-invasive navigation for large Minecraft railway networks.",
+  "authors": [
+    "Railway GPS contributors"
+  ],
+  "license": "All-Rights-Reserved",
+  "environment": "*",
+  "entrypoints": {
+    "main": [
+      "se.railwaygps.RailwayGps"
+    ],
+    "client": [
+      "se.railwaygps.client.RailwayGpsClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.20.1",
+    "minecraft": "~26.3",
+    "java": ">=25",
+    "fabric-api": "*"
+  }
+}
