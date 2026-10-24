@@ -16,6 +16,7 @@ This repository currently contains the first Phase 1 foundation:
 - Dijkstra shortest-path planning with directed, bidirectional, and parallel route support.
 - Versioned server-to-client network snapshots, sent only to Railway GPS-capable clients and refreshed after valid network changes.
 - Client-side destination selection, route following, basic track map matching, and a minecart-only navigation HUD.
+- Optional JourneyMap 6/API 2 integration for station and junction waypoints, recorded track overlays, and active-route highlighting.
 
 Recording commands:
 
@@ -41,6 +42,10 @@ Players with Railway GPS installed can begin the first navigation prototype near
 ```
 
 The HUD intentionally gives the neutral instruction “Continue toward …”. Left/right instructions are deferred until junction transitions can be verified or configured explicitly.
+
+## JourneyMap
+
+JourneyMap is optional. When a compatible JourneyMap 6 build is installed on the client, Railway GPS automatically adds non-persistent station and junction waypoints and draws recorded track geometry. Routes remaining in the active navigation plan are highlighted in blue. No JourneyMap classes are bundled in the Railway GPS jar, and the integration entrypoint is not loaded when JourneyMap is absent.
 
 ## Requirements
 

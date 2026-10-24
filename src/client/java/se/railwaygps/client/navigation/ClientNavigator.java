@@ -22,6 +22,7 @@ public final class ClientNavigator {
 	private static int currentLeg;
 	private static String networkVersion = "";
 	private static NavigationSnapshot snapshot;
+	private static long revision;
 
 	private ClientNavigator() {
 	}
@@ -42,18 +43,35 @@ public final class ClientNavigator {
 		plan = calculated.get();
 		currentLeg = 0;
 		networkVersion = ClientRailwayNetwork.version();
+		revision++;
 		update(player);
 		return new StartResult(true, "Navigating to " + network.nodeName(destination));
 	}
 
 	public static void stop() {
+		boolean wasActive = plan != null;
 		plan = null;
 		snapshot = null;
 		currentLeg = 0;
+		if (wasActive) {
+			revision++;
+		}
 	}
 
 	public static Optional<NavigationSnapshot> snapshot() {
 		return Optional.ofNullable(snapshot);
+	}
+
+	public static Optional<RoutePlan> activePlan() {
+		return Optional.ofNullable(plan);
+	}
+
+	public static int currentLegIndex() {
+		return currentLeg;
+	}
+
+	public static long revision() {
+		return revision;
 	}
 
 	public static void tick(Minecraft client) {
@@ -93,6 +111,7 @@ public final class ClientNavigator {
 		if (match.distanceToTrack() <= TRACK_MATCH_DISTANCE && isNearNode(player, network, leg.to())
 				&& geometryRemaining <= network.nodeRadius(leg.to()) + 2) {
 			currentLeg++;
+			revision++;
 			update(player);
 			return;
 		}
@@ -136,6 +155,7 @@ public final class ClientNavigator {
 		if (replacement.isPresent()) {
 			plan = replacement.get();
 			currentLeg = 0;
+			revision++;
 		} else {
 			stop();
 		}
