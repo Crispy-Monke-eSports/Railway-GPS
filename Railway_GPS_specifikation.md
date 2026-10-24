@@ -214,13 +214,7 @@ Att två spår möter samma kontrollzon betyder inte att övergången mellan dem
 
 Namnlager är presentation ovanpå den fysiska modellen. Ett namnlager kan omfatta hela eller partiella intervall av flera spår.
 
-Typer kan exempelvis vara:
-
-- `way` – längre led, exempelvis Riksettan;
-- `bridge` – bro, exempelvis Centralbron;
-- `tunnel` – tunnel;
-- `district` – område;
-- `custom` – serverdefinierad typ.
+**Namngivning ska vara enkel:** den behöriga användaren markerar en bit befintlig räls och ger den ett namn. Om namn ska synas i HUD räcker det att kunna ange **huvudled** (exempelvis Riksettan) eller **lokalt namn** (exempelvis Centralbron). Tekniska typer såsom `way`, `bridge` och `tunnel` får fortsätta finnas internt för kompatibilitet och valfri kartstyling, men **ingen lista av avancerade objektkategorier ska krävas i namngivningsflödet**. Namn är inte stationer, rödljus eller nya vägval.
 
 Ett namnlager innehåller:
 
@@ -394,7 +388,7 @@ När de fysiska spåren redan är registrerade ska en behörig person kunna namn
 
 Arbetsflödet är:
 
-1. Välj typ, tekniskt ID och visningsnamn för namnet.
+1. Ange **visningsnamn** och välj vid behov **huvudled** eller **lokalt namn**. Moddet genererar tekniskt ID automatiskt; användaren ska inte behöva förstå eller mata in det i det vanliga gränssnittet.
 2. Markera en startpunkt och en slutpunkt i världen eller på kartan.
 3. Moddet projicerar punkterna på närmaste kompatibla registrerade spår.
 4. Moddet räknar fram sammanhängande kandidater genom det kända spårnätet.
