@@ -8,9 +8,11 @@
 
 Den här specifikationen beskriver den önskade lösningen utan krav på bakåtkompatibilitet med en tidigare datamodell. Exakta kommandon och lagringsscheman får förfinas under implementation, men domänmodellen och användarbeteendet nedan är vägledande.
 
+**Fastställda produktbeslut (2026-10-25):** (1) endast stationer och terminaler kan väljas som destinationer; (2) ankomst bekräftas i rätt plattforms-/stoppzon med rimlig färdhistorik, även under rörelse; (3) `survey finish` publicerar **direkt och atomiskt** om hela inspelningen är giltig; (4) geometri-baserade förslag på parallella spårpar kräver **administratörens uttryckliga godkännande**; (5) separata serverstyrda behörigheter för **inspektion, namngivning, inspelning samt administration/publicering**. Rödljus är black boxes utan inspelning av interna spår och utan genomfartskostnader.
+
 ## 1. Vision
 
-Railway GPS är ett icke-ingripande navigationsmod för stora befintliga järnvägsnät. Spelaren väljer en station eller annan destination och får hjälp att följa rätt fysiska spår genom nätet.
+Railway GPS är ett icke-ingripande navigationsmod för stora befintliga järnvägsnät. Spelaren väljer en **station eller terminal** och får hjälp att följa rätt fysiska spår genom nätet. Rödljus/korsningar och dimensionsportar är navigationspunkter, **inte valbara destinationer**.
 
 Moddet ska kunna ge instruktioner som:
 
@@ -58,6 +60,7 @@ När två parallella spår inte kan särskiljas säkert ska moddet visa **Osäke
 | **Kontrollpunkt** | Plats där nätets topologi eller navigationsbeteende förändras, exempelvis station, korsning, terminal eller dimensionsövergång. |
 | **Zon** | Ett tredimensionellt område bestående av en eller flera boxar. |
 | **Station** | Namngiven destination med stationsområde och en eller flera plattformszoner. |
+| **Terminal** | Valbar destination med en särskild stoppzon och koppling till rätt fysiskt spår. |
 | **Korsning/rödljus** | Kontrollpunkt där spår möts och vissa övergångar kan väljas. |
 | **Port** | En fysisk in- eller utgång där ett spår passerar kontrollpunktens gräns. |
 | **Spårsektion** | Fysisk korridor mellan två närliggande kontrollpunkter. |
@@ -147,7 +150,7 @@ Centralstationen
 
 Stationsområdet används för sökning, kartpresentation och den allmänna upplevelsen av att vara vid stationen. Plattformszonerna används för exakt start, ankomst och val av rätt spår.
 
-Ett tåg som passerar genom stationsområdet på ett annat spår ska inte automatiskt räknas som anlänt. En destination bekräftas när den planerade plattforms-/stoppzonen nås med rimlig färdhistorik.
+Ett tåg som passerar genom stationsområdet på ett annat spår ska inte automatiskt räknas som anlänt. En destination bekräftas när minecarten når **rätt planerad plattforms-/stoppzon** på den avsedda fysiska rälsen med rimlig bekräftad färdhistorik. **Stopp och låg hastighet krävs inte**; en rullande vagn får räknas som framme. Terminaler ska ha motsvarande stoppzon. Endast stationer och terminaler erbjuds som destinationer i spelarnas sökning, navigeringskommandon och kartval.
 
 ### 5.3 Korsningar och rödljus
 
@@ -162,7 +165,7 @@ En korsning består av:
 
 Kontrollzonen omsluter hela området där vägvalet sker. Den används för att dela inspelningar, identifiera inträde och utträde och bekräfta vilket vägval vagnen faktiskt genomförde.
 
-Zonen bestämmer inte automatiskt vilka svängar som är möjliga. Det gör övergångarna.
+Zonen bestämmer inte automatiskt vilka svängar som är möjliga. Det gör övergångarna. **Rödljus är black boxes:** spår spelas bara in fram till/ifrån zongränsens portar; interna rälsbitar, växelmekanik och redstone modelleras inte. En inspelad och säkerställd infart→utfart kan registreras som giltig övergång utan separat manuell publiceringsbekräftelse. Oklara vägval förblir overifierade tills de kan verifieras eller administratören bekräftar dem. Stationer och terminaler är separata stopp-/ankomstobjekt.
 
 ### 5.4 Spårsektioner och fysiska spår
 
@@ -207,8 +210,7 @@ inkommande passage → kontrollpunkt → utgående passage
 Övergången kan innehålla:
 
 - tillåten/avstängd status;
-- observerad väg genom kontrollzonen;
-- manuell kostnad eller väntetid;
+- verifierad identifiering av infarts- och utfartsport, **utan att lagra intern rälsgeometri**;
 - kontroll-/knappinstruktion;
 - valfri lokaliserad instruktion;
 - källa, exempelvis observerad inspelning eller administratörsbeslut.
@@ -315,7 +317,18 @@ Krav:
 
 ## 7. Administration och redigering
 
-Servern ska kunna ge en person begränsad behörighet att namnge och granska spår utan full administratörsbehörighet. Skapande av fysisk räls, kontrollpunkter och övergångar kan kräva en högre behörighetsnivå.
+Behörigheter ska vara **separata och serverkontrollerade**. Vanlig navigation kräver ingen redigeringsroll. Fyra oberoende rättigheter används:
+
+| Rättighet | Tillåten åtgärd |
+|---|---|
+| **Inspektion** | Se teknisk nätverksinformation, status och felsökningsverktyg; inte ändra data. |
+| **Namngivning** | Föreslå/skapa/ändra namnlager på befintliga verifierade spår; inte ändra fysisk topologi. |
+| **Inspelning** | Starta/avsluta/avbryta minecart-surveys; giltigt `finish` publicerar automatiskt det inspelade nätverkstillskottet enligt serverns policy. |
+| **Administration/publicering** | Skapa/ändra kontrollpunkter, portar, spår, tillåtna övergångar och rättigheter; bekräfta spårpar, importera/återställa revisioner och utföra destruktiva ingrepp. |
+
+Servern kontrollerar varje begäran, även via klient-GUI och API. Klienterna får bara data de har rätt att se. Rollernas exakta kommandon/behörighetsnoder är en teknisk detalj, men separationen är beslutad. En användare kan ha flera rättigheter; en ren inspelare behöver inte moderatorbehörighet. Spårparning kräver uttryckligt godkännande med administrations-/publiceringsrätt.
+
+Vanliga spelare ska bara kunna söka fram och välja **stationer eller terminaler** som destinationer.
 
 ### 7.1 Visuellt markeringsverktyg
 
@@ -338,7 +351,7 @@ Arbetsflödet är:
 2. Markera kontrollzonen runt hela växel-/rödljusområdet.
 3. Spela in spåren som passerar zonen.
 4. Låt moddet föreslå portar vid zonens gräns.
-5. Bekräfta tillåtna övergångar.
+5. Verifiera observerade möjliga övergångar (administratörsbeslut behövs om observationen är osäker).
 6. Lägg vid behov till kontrollinstruktioner.
 
 Illustrativ kommandodesign:
@@ -368,39 +381,24 @@ Arbetsflödet är:
 
 ### 7.4 Spela in fysisk räls
 
-En inspelning får vara lång och passera flera kontrollpunkter. Administratören behöver inte starta om vid varje rödljus.
+En användare med **inspelningsbehörighet** får starta en lång survey som passerar flera kontrollpunkter utan omstart vid varje rödljus.
 
 ```mcfunction
 /rgps survey start
 /rgps survey status
 /rgps survey finish
+/rgps survey cancel
 ```
 
-Efter `finish` analyserar moddet den inspelade färden:
+Vid inspelning registreras **fysisk räls utanför rödljusens zoner**. Vid zongränsen identifieras infartsporten, intern rälsgeometri ignoreras och nästa inspelade fysiska spår börjar vid utfartsporten. Observerade och entydigt verifierade infart→utfart-övergångar kan ingå i samma publikation. Stationer och terminaler behåller sina egna stoppzoner.
 
-1. matchar färden mot kända kontrollzoner;
-2. delar geometrin vid zonernas in- och utpassager;
-3. föreslår nya sektioner och spår;
-4. registrerar observerade övergångar genom korsningar;
-5. föreslår parning med närliggande motriktat spår;
-6. visar konflikter eller osäkerheter.
+**Beslutad publiceringsregel:** `/rgps survey finish` analyserar och validerar **hela inspelningen** och publicerar alla giltiga tillskott **direkt, atomiskt och i en revision**, utan ett obligatoriskt separat `confirm`-/`discard`-steg. Vid kritiskt fel, osäker koppling som kräver manuell kontroll eller misslyckad skrivning publiceras **ingenting**; användaren får en begriplig felrapport. Survey-avbrytning får inte spara delvis data. Visuell förhandsvisning och diagnoser är frivilligt stöd, inte ett extra publiceringskrav. Administratörsåtgärder för senare redigering/återställning är en separat process.
 
-Tekniska spår-ID:n skapas av moddet och ska normalt inte efterfrågas i gränssnittet. En enda inspelning får
-skapa flera spårdelar och de observerade övergångarna mellan dem. Den nuvarande testimplementationen sparar
-resultatet atomiskt vid `finish`; granskningsutkast och separat bekräftelse är ett senare gränssnittslager.
-
-Det planerade granskningsflödet är:
-
-```mcfunction
-/rgps survey confirm
-/rgps survey discard
-```
-
-Ingen aktiv nätverksdata ersätts av ett ogenomgånget utkast.
+**Spårpar är ett undantag från automatiken:** vid `finish` får moddet föreslå geometriskt närliggande motriktade spårpar men får **aldrig para ihop dem automatiskt**, även om exakt en kandidat hittas. Ett förslag kräver efterföljande uttryckligt godkännande av person med behörigheten administration/publicering. Inspelade spår kan ändå publiceras oparade om de är giltiga. När redan existerande spår upptäcks får systemet inte destruktivt slå samman dem automatiskt.
 
 ### 7.5 Tvåspåriga sträckor
 
-Vardera fysiska rälsen spelas in separat. Moddet får föreslå att två ungefär parallella, motriktade spår hör till samma sektion, men en administratör bekräftar kopplingen.
+Vardera fysiska rälsen spelas in separat. Moddet **föreslår par utifrån fysisk närhet, riktning och geometrisk överensstämmelse**; det räcker inte att spåren har omvända kontrollpunkter. Förslaget visar vilka två spår det gäller och osäkerhet. **Ingen parning sker automatiskt**, inte ens med en enda kandidat. En person med administrations-/publiceringsrätt måste godkänna paret uttryckligen. Oparade, giltiga spår fungerar i nätet.
 
 Parningen påverkar presentation och administration. Ruttberäkningen fortsätter att använda respektive riktad passage.
 
@@ -481,7 +479,7 @@ En generell instruktion för utgången kan kompletteras med mer specifika överg
 
 ## 8. Tekniskt inspelningsbeteende
 
-Inspelningen sker på serversidan och kopplas till administratören och den specifika minecart som används vid start.
+Inspelningen sker på serversidan och kopplas till den **inspelningsbehöriga** användaren och den specifika minecart som används vid start.
 
 ### 8.1 Insamling
 
@@ -489,7 +487,7 @@ Inspelningen sker på serversidan och kopplas till administratören och den spec
 - Identifiera rälsblocket som vagnen följer när detta kan göras säkert.
 - Registrera ordning, kurvor, lutningar och dimension.
 - Undvik duplicerade punkter när vagnen står stilla.
-- Registrera passage genom kontrollzoner med tidsordning och riktning.
+- Registrera passage genom kontrollzoner med tidsordning och riktning. Rödljusens inre är **opaque**: logga infarts-/utfartsport och observerat vägval, inte intern rälsgeometri.
 - Visa den inspelade linjen live på administratörens klient.
 
 ### 8.2 Efterbearbetning
@@ -498,7 +496,7 @@ Inspelningen sker på serversidan och kopplas till administratören och den spec
 - Förenkla raka delar utan att förlora kurvor, höjdskillnader eller parallell separation.
 - Projektera kontrollzonernas gränspassager på geometrin.
 - Identifiera befintlig geometri som den nya inspelningen sannolikt motsvarar.
-- Skapa förslag, aldrig tysta destruktiva sammanslagningar.
+- Skapa förslag, aldrig tysta destruktiva sammanslagningar eller automatisk spårparning. Entydigt giltiga inspelningar publiceras vid `finish` utan manuellt publiceringssteg; osäkra inspelningar avvisas helt i stället för att aktiveras delvis.
 
 ### 8.3 Strikt avbrott
 
@@ -529,13 +527,7 @@ Grafkanter är:
 
 Detta förhindrar att alla spår vid samma korsning automatiskt betraktas som ömsesidigt anslutna.
 
-Kostnaden kan baseras på:
-
-- fysisk längd;
-- uppskattad restid;
-- väntetid vid kontrollpunkt;
-- manuell prioritet;
-- tillfällig avstängning eller mycket hög kostnad.
+Ruttberäkningen använder **längden på den verifierade fysiska rälsen utanför rödljuszoner**. Ett rödljusbidrag är **noll**: ingen uppskattad väntetid, manuell korsningskostnad, övergångsvikt eller extra straffkostnad behövs. Avstängda spår och övergångar är **otillåtna**, inte dyrare alternativ.
 
 Dijkstra eller A* kan användas. Ruttresultatet är en följd av specifika riktade passager och övergångar, vilket gör att klienten vet exakt vilket av två parallella spår som avses.
 
@@ -680,15 +672,15 @@ När ett objekt väljs ska det kunna:
 ### 12.4 Visuell inspelning och redigering
 
 Railway GPS öppnas med en konfigurerbar tangent (`R` som standard). Vanliga spelare får en sökbar
-destinationslista med stationer, terminaler, korsningar och dimensionsportar samt tydliga knappar för att
+destinationslista med **enbart stationer och terminaler** (inte rödljus, korsningar eller dimensionsportar) samt tydliga knappar för att
 starta eller stoppa navigeringen. Tekniska ID:n behöver inte användas.
 
-Behöriga administratörer får dessutom knappen **Adminverktyg**. Den öppnar redigeringsläget, som visar
+Behöriga användare får de **inspektions-, namn-, inspelnings- och administrationsverktyg** som deras separata serverrättigheter tillåter. Administratörer får dessutom knappen **Adminverktyg**. Den öppnar redigeringsläget, som visar
 aktuella musåtgärder och vald geometri i en HUD, i samma anda som verktygspaletten i SimpleBlueprints. För
 kontrollzoner väljer vänsterklick första hörnet och högerklick andra hörnet; en tredimensionell kontur visas
 omedelbart. `R` lämnar adminläget. Servern kontrollerar fortfarande behörighet och äger den sparade modellen.
 
-Under inspelning visas geometrin live. Inträde och utträde ur kontrollzoner markeras. Föreslagna delningar, portar och spårpar visas innan administratören bekräftar dem.
+Under inspelning kan geometrin visas live och in- och utträde ur kontrollzoner markeras. Giltig inspelning publiceras **direkt** vid `finish` efter full validering; inga obligatoriska granskningsutkast eller separat `survey confirm` krävs. Geometriska **spårparningsförslag** visas separat och måste bekräftas av behörig administratör innan parning kan sparas.
 
 Vid punktbaserad namngivning ska startpunkt, slutpunkt, eventuella mellanpunkter och hela den beräknade spårvägen visas. Om flera kandidater finns ska användaren kunna växla mellan dem innan bekräftelse. Vald riktning, partiella ändintervall och automatiskt inkluderade parallella spår ska gå att särskilja visuellt.
 
@@ -749,7 +741,7 @@ Valideringen ska bland annat hitta:
 - oavsiktlig sammanblandning av spår på olika höjd;
 - aktiva resvägar som använder avstängda objekt.
 
-Endast behöriga administratörer får skapa, ändra, publicera eller radera nätverksobjekt. Läsbehörighet för teknisk nätverksdata kan skiljas från vanlig navigeringsbehörighet.
+Servern upprätthåller **separata behörigheter för inspektion, namngivning, inspelning och administration/publicering**. Inspelningsbehöriga får publicera *endast ett fullständigt validerat survey-resultat* direkt genom `finish`; övrig skapelse/ändring av fysisk topologi och spårparsbekräftelse kräver administrations-/publiceringsrätt. Namnredaktörer får inte ändra fysiska spår eller rödljusövergångar. Teknisk/adminspecifik information ges bara till behöriga mottagare; normal navigation är öppen för spelare med kompatibel klient.
 
 Destruktiva ändringar kräver förhandsvisning, beroendeanalys och bekräftelse. Systemet ska kunna återgå till föregående fungerande revision.
 
@@ -823,12 +815,12 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 - Strikt avbrott vid dismount eller annan sessionsförlust.
 - Långa inspelningar genom flera kontrollzoner.
 - Automatiska delnings-, port- och övergångsförslag.
-- Visuell utkastgranskning före publicering.
+- **Automatisk, atomisk publicering av helt validerade surveys vid `finish`**, med total avvisning vid fel; separat granskningspublicering krävs inte.
 
 ### Fas 5 – Flerspårighet och övergångar
 
 - Inspelning av separata riktningar.
-- Förslag och bekräftelse av parallella spårpar.
+- **Geometribaserade förslag på parallella spårpar och obligatoriskt uttryckligt administratörsgodkännande**; inga automatiska parningar.
 - Tillåtna/otillåtna korsningsövergångar.
 - Kontrollinstruktioner för knappar och specialbyggen.
 
@@ -853,11 +845,12 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
   kamerariktning får aldrig användas för att avgöra vänster eller höger; saknas säker rälsmatchning visas en
   neutral fortsätt-instruktion.
 - Lokaliserad HUD.
+- **Sökning och destinationsval endast för stationer/terminaler; bekräftad ankomst vid rätt plattforms-/stoppzon även under rörelse.**
 
 ### Fas 8 – JourneyMap och administrationspolering
 
 - Gemensam presentationsmodell för intern rendering och JourneyMap.
-- Kartbaserat destinationsval.
+- Kartbaserat destinationsval **endast för stationer och terminaler**.
 - Sökning, filtrering och objektinspektion.
 - Prestandaoptimering för stora nät.
 
@@ -867,12 +860,12 @@ En första komplett version av målarkitekturen ska demonstrera att:
 
 1. Två separata parallella spår mellan samma kontrollpunkter kan spelas in och navigeras i rätt riktning.
 2. Ett enkelspår kan markeras som verifierat dubbelriktat utan duplicerad geometri.
-3. En lång inspelning genom flera rödljus delas och granskas utan att vägnamnet behöver brytas.
+3. En lång inspelning genom flera rödljus delas i yttre spår och verifierade black-box-övergångar, och **publiceras atomiskt direkt vid giltigt `finish`** utan separat obligatorisk granskning; vägnamnet behöver inte brytas.
 4. Riksettan kan omfatta flera sektioner och kontrollpunkter.
 5. Centralbron kan täcka endast en del av spåret utan extra grafnod.
 6. Samma spår kan samtidigt visa Riksettan och Centralbron.
 7. Namnlösa spår kan ingå i resvägar utan att tekniska ID:n visas för spelaren.
-8. En station med flera plattformar kan ge korrekt start och ankomst.
+8. Endast stationer och terminaler visas som destinationer. En station med flera plattformar eller en terminal med stoppzon ger korrekt start och **ankomst först vid rätt plattform/stoppzon även om vagnen rullar**.
 9. En omöjlig sväng i en korsning används aldrig av ruttberäkningen.
 10. Automatisk vänster/höger/rakt-instruktion använder verklig in- och utgående geometri.
 11. En anpassad instruktion som `Välj knappen för Martyrön` har företräde.
@@ -881,24 +874,25 @@ En första komplett version av målarkitekturen ska demonstrera att:
 14. JourneyMap kan visa samma nät och aktiva resväg när integrationen är installerad.
 15. En avbruten inspelning lämnar ingen delvis aktiv data.
 16. En felaktig ändring kan inte ersätta den senaste fungerande revisionen.
-17. En behörig redaktör kan markera två punkter, välja rätt kandidatväg och namnge de befintliga spåren utan att åka sträckan.
+17. En namngivningsbehörig redaktör kan markera två punkter, välja rätt kandidatväg och namnge de befintliga spåren utan att åka sträckan.
+18. Geometriskt föreslagna spårpar förblir oparade tills en administratör uttryckligen godkänner parningen.
+19. Separata serverbehörigheter styr inspektion, namngivning, inspelning och administration/publicering utan att ge onödig topologiåtkomst.
 
 ## 20. Återstående detaljbeslut
 
-Följande behöver prototypas eller beslutas under implementationen:
+Följande **tekniska detaljer**, som inte ändrar de fem fastställda produktbesluten, behöver prototypas eller beslutas under implementationen:
 
-1. Exakt tolerans och algoritm för att föreslå parallella spårpar.
+1. Exakt tolerans och algoritm för **geometriskt grundade** spårparningsförslag (alltid manuell bekräftelse).
 2. Exakt format för geometri och detaljnivåer.
 3. Hur portar redigeras när flera spår passerar zonkanten mycket nära varandra.
-4. Om ankomst kräver låg hastighet, stopp eller endast säker passage genom plattformszonen.
-5. Hur flera samtidiga `way`-namn prioriteras i en begränsad HUD.
-6. Slutlig kommandosyntax och hur mycket administration som flyttas till grafiskt gränssnitt.
-7. Exakta Fabric- och JourneyMap-API-versioner för målversionen.
-8. Om ruttberäkningen primärt görs på servern, klienten eller hybridmässigt.
-9. Hur tillfälliga avstängningar och enkelriktning under drift exponeras för administratörer.
-10. Vilken databasimplementation och backupstrategi som bäst passar målservern.
-11. Hur kandidater mellan två markerade punkter rankas när flera likvärdiga vägar finns.
-12. Vilka separata roller som får visa, namnge respektive ändra det fysiska nätet.
+4. Hur flera samtidiga `way`-namn prioriteras i en begränsad HUD.
+5. Slutlig kommandosyntax och hur mycket administration som flyttas till grafiskt gränssnitt.
+6. Exakta Fabric- och JourneyMap-API-versioner för målversionen.
+7. Om ruttberäkningen primärt görs på servern, klienten eller hybridmässigt.
+8. Hur tillfälliga avstängningar och enkelriktning under drift exponeras för administratörer.
+9. Vilken databasimplementation och backupstrategi som bäst passar målservern.
+10. Hur kandidater mellan två markerade punkter rankas när flera likvärdiga vägar finns.
+11. Hur de **redan beslutade** separata serverbehörigheterna representeras som permission-noder och tilldelas användare.
 
 ## 21. Sammanfattning
 
@@ -906,6 +900,6 @@ Railway GPS ska modellera verklig räls, inte bara namngivna linjer mellan punkt
 
 Namn är fristående lager. Riksettan kan löpa genom flera rödljus, Centralbron kan omfatta endast den stockmarkerade delen av två parallella spår och namnlösa anslutningar kan fortfarande användas fullt ut. En resa beräknas genom det gemensamma fysiska nätet och duplicerar inte spår för varje destinationskombination.
 
-Klienten ska göra nätet synligt: zoner, spår, riktningar, övergångar, namn, aktiv resväg och valideringsfel ska kunna inspekteras i världen. JourneyMap använder samma modell men förblir valfritt. Administratören ska alltid kunna se vad servern har registrerat och granska ett utkast innan det publiceras.
+Klienten ska göra nätet synligt: zoner, spår, riktningar, övergångar, namn, aktiv resväg och valideringsfel ska kunna inspekteras i världen, styrt av separat inspektionsbehörighet. JourneyMap använder samma modell men förblir valfritt. **En fullständigt validerad survey publiceras direkt vid `finish`; inga obligatoriska granskningsutkast krävs.** Oparade parallella spår kan publiceras som separata spår, men spårparning kräver alltid administratörsbekräftelse. Spelarnas destinationer är enbart stationer/terminaler; ankomst kräver rätt stoppzon men inte stillastående vagn.
 
 Moddet förblir vägledande och icke-ingripande. Det berättar vad spelaren ska göra men styr aldrig minecart, knappar, redstone eller växlar.
