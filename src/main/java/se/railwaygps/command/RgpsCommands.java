@@ -6,6 +6,7 @@ import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.fabricmc.fabric.api.command.v2.CommandRegistrationCallback;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
@@ -26,6 +27,12 @@ import se.railwaygps.recording.RecordingManager;
 import se.railwaygps.recording.RecordingStatus;
 import se.railwaygps.server.RailwayGpsServer;
 import se.railwaygps.v2.model.TrackLabel;
+import se.railwaygps.v2.model.ControlPoint;
+import se.railwaygps.v2.model.TrackDirection;
+import se.railwaygps.v2.model.TraversalRef;
+import se.railwaygps.v2.editing.NetworkV2Editor;
+import se.railwaygps.v2.editing.SurveyManager;
+import se.railwaygps.v2.editing.ZoneSelectionManager;
 import se.railwaygps.v2.naming.LabelSelectionManager;
 import se.railwaygps.v2.naming.TrackLabelEditor;
 import se.railwaygps.v2.naming.TrackPathSelector;
@@ -107,9 +114,48 @@ public final class RgpsCommands {
 														.then(Commands.argument("candidate", IntegerArgumentType.integer(1))
 																.then(Commands.argument("include_paired", BoolArgumentType.bool())
 																		.then(Commands.argument("name", StringArgumentType.greedyString())
-																				.executes(RgpsCommands::createLabel))))))))
+																.executes(RgpsCommands::createLabel))))))))
+						.then(v2Command())
 						.then(Commands.literal("reload").executes(RgpsCommands::reload))
 		));
+	}
+
+	private static LiteralArgumentBuilder<CommandSourceStack> v2Command() {
+		var root = Commands.literal("v2");
+		root.then(Commands.literal("list").executes(RgpsCommands::listV2Network));
+		root.then(Commands.literal("zone")
+				.then(Commands.literal("first").executes(RgpsCommands::markZoneFirst))
+				.then(Commands.literal("second").executes(RgpsCommands::markZoneSecond))
+				.then(Commands.literal("cancel").executes(RgpsCommands::cancelZoneSelection)));
+		root.then(Commands.literal("control").then(Commands.literal("create")
+				.then(Commands.argument("id", StringArgumentType.word())
+						.then(Commands.argument("kind", StringArgumentType.word())
+								.then(Commands.argument("name", StringArgumentType.greedyString())
+										.executes(RgpsCommands::createControlPoint))))));
+		root.then(Commands.literal("survey")
+				.then(Commands.literal("start").then(Commands.argument("from", StringArgumentType.word())
+						.then(Commands.argument("to", StringArgumentType.word())
+								.then(Commands.argument("track_id", StringArgumentType.word())
+										.executes(RgpsCommands::startV2Survey)))))
+				.then(Commands.literal("finish").executes(RgpsCommands::finishV2Survey))
+				.then(Commands.literal("status").executes(RgpsCommands::v2SurveyStatus))
+				.then(Commands.literal("cancel").executes(RgpsCommands::cancelV2Survey)));
+		root.then(Commands.literal("track").then(Commands.literal("pair")
+				.then(Commands.argument("first", StringArgumentType.word())
+						.then(Commands.argument("second", StringArgumentType.word())
+								.executes(RgpsCommands::pairV2Tracks)))));
+		root.then(Commands.literal("transition").then(Commands.literal("add")
+				.then(Commands.argument("id", StringArgumentType.word())
+						.then(Commands.argument("control", StringArgumentType.word())
+								.then(Commands.argument("incoming", StringArgumentType.word())
+										.then(Commands.argument("incoming_direction", StringArgumentType.word())
+												.then(Commands.argument("outgoing", StringArgumentType.word())
+														.then(Commands.argument("outgoing_direction", StringArgumentType.word())
+																.executes(context -> addV2Transition(context, null))
+																.then(Commands.argument("instruction", StringArgumentType.greedyString())
+																		.executes(context -> addV2Transition(context,
+																				StringArgumentType.getString(context, "instruction"))))))))))));
+		return root;
 	}
 
 	private static int addStation(CommandContext<CommandSourceStack> context, String id) throws CommandSyntaxException {
@@ -496,6 +542,163 @@ public final class RgpsCommands {
 			return Command.SINGLE_SUCCESS;
 		} catch (IOException | NetworkValidationException | IllegalArgumentException | IllegalStateException exception) {
 			return fail(source, "Could not create label: " + exception.getMessage());
+		}
+	}
+
+	private static int listV2Network(CommandContext<CommandSourceStack> context) {
+		CommandSourceStack source = context.getSource();
+		var network = RailwayGpsServer.get(source.getServer()).networkV2();
+		source.sendSuccess(() -> Component.literal(
+				"Railway GPS v2 revision %d: %d control points, %d sections, %d physical tracks, %d transitions, %d labels"
+						.formatted(network.revision(), network.controlPoints().size(), network.sections().size(),
+								network.tracks().size(), network.transitions().size(), network.labels().size())), false);
+		return Command.SINGLE_SUCCESS;
+	}
+
+	private static int markZoneFirst(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		ZoneSelectionManager.Selection selection = RailwayGpsServer.get(source.getServer()).zoneSelections()
+				.markFirst(source.getPlayerOrException());
+		source.sendSuccess(() -> Component.literal("First zone corner selected at " + format(selection.first())), false);
+		return Command.SINGLE_SUCCESS;
+	}
+
+	private static int markZoneSecond(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		try {
+			ZoneSelectionManager.Selection selection = RailwayGpsServer.get(source.getServer()).zoneSelections()
+					.markSecond(source.getPlayerOrException());
+			source.sendSuccess(() -> Component.literal("Second zone corner selected at " + format(selection.second())), false);
+			return Command.SINGLE_SUCCESS;
+		} catch (IllegalStateException exception) {
+			return fail(source, exception.getMessage());
+		}
+	}
+
+	private static int cancelZoneSelection(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		RailwayGpsServer.get(source.getServer()).zoneSelections().clear(source.getPlayerOrException());
+		source.sendSuccess(() -> Component.literal("Zone selection cancelled"), false);
+		return Command.SINGLE_SUCCESS;
+	}
+
+	private static int createControlPoint(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		String id = StringArgumentType.getString(context, "id");
+		String name = StringArgumentType.getString(context, "name").trim();
+		ControlPoint.Kind kind;
+		try {
+			kind = ControlPoint.Kind.valueOf(StringArgumentType.getString(context, "kind").toUpperCase(Locale.ROOT));
+		} catch (IllegalArgumentException exception) {
+			return fail(source, "Unknown control point kind; use station, junction, terminal or dimension_gate");
+		}
+		try {
+			RailwayGpsServer state = RailwayGpsServer.get(source.getServer());
+			ServerPlayer player = source.getPlayerOrException();
+			ControlPoint point = state.zoneSelections().create(player, id, name, kind);
+			state.saveV2(NetworkV2Editor.addControlPoint(state.networkV2(), id, name, kind, point.zone()));
+			state.zoneSelections().clear(player);
+			source.sendSuccess(() -> Component.literal("Created v2 " + kind.name().toLowerCase(Locale.ROOT)
+					+ " '" + name + "' (" + id + ")"), true);
+			return Command.SINGLE_SUCCESS;
+		} catch (IOException | NetworkValidationException | IllegalArgumentException | IllegalStateException exception) {
+			return fail(source, "Could not create control point: " + exception.getMessage());
+		}
+	}
+
+	private static int startV2Survey(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		try {
+			String from = StringArgumentType.getString(context, "from");
+			String to = StringArgumentType.getString(context, "to");
+			String trackId = StringArgumentType.getString(context, "track_id");
+			RailwayGpsServer.get(source.getServer()).surveys().start(source.getPlayerOrException(), from, to,
+					trackId, source.getServer().getTickCount());
+			source.sendSuccess(() -> Component.literal("Surveying physical track '" + trackId + "' from '"
+					+ from + "' to '" + to + "'. Stay in this minecart."), true);
+			return Command.SINGLE_SUCCESS;
+		} catch (RecordingException exception) {
+			return fail(source, exception.getMessage());
+		}
+	}
+
+	private static int finishV2Survey(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		try {
+			SurveyManager.FinishedSurvey finished = RailwayGpsServer.get(source.getServer()).surveys()
+					.finish(source.getPlayerOrException());
+			source.sendSuccess(() -> Component.literal(
+					"Saved physical track '%s': %.1f blocks, %d recorded points, %d simplified points".formatted(
+							finished.trackId(), finished.length(), finished.rawPointCount(), finished.simplifiedPointCount())), true);
+			return Command.SINGLE_SUCCESS;
+		} catch (RecordingException exception) {
+			return fail(source, exception.getMessage());
+		}
+	}
+
+	private static int v2SurveyStatus(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		try {
+			SurveyManager.Status status = RailwayGpsServer.get(source.getServer()).surveys()
+					.status(source.getPlayerOrException(), source.getServer().getTickCount());
+			source.sendSuccess(() -> Component.literal(
+					"Survey '%s' (%s -> %s): %d points, %.1f blocks, %.1f seconds".formatted(status.trackId(),
+							status.from(), status.to(), status.pointCount(), status.distance(), status.elapsedTicks() / 20.0)), false);
+			return Command.SINGLE_SUCCESS;
+		} catch (RecordingException exception) {
+			return fail(source, exception.getMessage());
+		}
+	}
+
+	private static int cancelV2Survey(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+		CommandSourceStack source = context.getSource();
+		try {
+			RailwayGpsServer.get(source.getServer()).surveys().cancel(source.getPlayerOrException());
+			source.sendSuccess(() -> Component.literal("V2 survey cancelled; no physical track was saved"), true);
+			return Command.SINGLE_SUCCESS;
+		} catch (RecordingException exception) {
+			return fail(source, exception.getMessage());
+		}
+	}
+
+	private static int pairV2Tracks(CommandContext<CommandSourceStack> context) {
+		CommandSourceStack source = context.getSource();
+		String first = StringArgumentType.getString(context, "first");
+		String second = StringArgumentType.getString(context, "second");
+		try {
+			RailwayGpsServer state = RailwayGpsServer.get(source.getServer());
+			state.saveV2(NetworkV2Editor.pairTracks(state.networkV2(), first, second));
+			source.sendSuccess(() -> Component.literal("Paired directional tracks '" + first + "' and '" + second + "'"), true);
+			return Command.SINGLE_SUCCESS;
+		} catch (IOException | NetworkValidationException | IllegalArgumentException exception) {
+			return fail(source, "Could not pair tracks: " + exception.getMessage());
+		}
+	}
+
+	private static int addV2Transition(CommandContext<CommandSourceStack> context, String instruction) {
+		CommandSourceStack source = context.getSource();
+		try {
+			String id = StringArgumentType.getString(context, "id");
+			String control = StringArgumentType.getString(context, "control");
+			String incoming = StringArgumentType.getString(context, "incoming");
+			String outgoing = StringArgumentType.getString(context, "outgoing");
+			TrackDirection incomingDirection = parseDirection(context, "incoming_direction");
+			TrackDirection outgoingDirection = parseDirection(context, "outgoing_direction");
+			RailwayGpsServer state = RailwayGpsServer.get(source.getServer());
+			state.saveV2(NetworkV2Editor.addTransition(state.networkV2(), id, control,
+					new TraversalRef(incoming, incomingDirection), new TraversalRef(outgoing, outgoingDirection), instruction));
+			source.sendSuccess(() -> Component.literal("Created transition '" + id + "' at '" + control + "'"), true);
+			return Command.SINGLE_SUCCESS;
+		} catch (IOException | NetworkValidationException | IllegalArgumentException exception) {
+			return fail(source, "Could not create transition: " + exception.getMessage());
+		}
+	}
+
+	private static TrackDirection parseDirection(CommandContext<CommandSourceStack> context, String argument) {
+		try {
+			return TrackDirection.valueOf(StringArgumentType.getString(context, argument).toUpperCase(Locale.ROOT));
+		} catch (IllegalArgumentException exception) {
+			throw new IllegalArgumentException("Unknown direction; use forward or reverse");
 		}
 	}
 

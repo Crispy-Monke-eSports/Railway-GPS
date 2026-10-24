@@ -19,7 +19,11 @@ public final class RailwayGps implements ModInitializer {
 		RailwayGpsNetworking.register();
 		ServerLifecycleEvents.SERVER_STARTED.register(RailwayGpsServer::start);
 		ServerLifecycleEvents.SERVER_STOPPED.register(RailwayGpsServer::stop);
-		ServerTickEvents.END_SERVER_TICK.register(server -> RailwayGpsServer.get(server).recordings().tick(server));
+		ServerTickEvents.END_SERVER_TICK.register(server -> {
+			RailwayGpsServer state = RailwayGpsServer.get(server);
+			state.recordings().tick(server);
+			state.surveys().tick(server);
+		});
 		LOGGER.info("Railway GPS initialized");
 	}
 }

@@ -10,6 +10,8 @@ import se.railwaygps.network.RailwayGpsNetworking;
 import se.railwaygps.storage.NetworkStorage;
 import se.railwaygps.storage.NetworkV2Storage;
 import se.railwaygps.v2.model.RailwayNetworkV2;
+import se.railwaygps.v2.editing.SurveyManager;
+import se.railwaygps.v2.editing.ZoneSelectionManager;
 import se.railwaygps.v2.naming.LabelSelectionManager;
 
 import java.io.IOException;
@@ -23,6 +25,8 @@ public final class RailwayGpsServer {
 	private final NetworkV2Storage storageV2;
 	private final RecordingManager recordings;
 	private final LabelSelectionManager labelSelections;
+	private final ZoneSelectionManager zoneSelections;
+	private final SurveyManager surveys;
 	private final MinecraftServer server;
 	private RailwayNetwork network = RailwayNetwork.EMPTY;
 	private RailwayNetworkV2 networkV2 = RailwayNetworkV2.EMPTY;
@@ -33,6 +37,8 @@ public final class RailwayGpsServer {
 		this.storageV2 = new NetworkV2Storage(server.getWorldPath(LevelResource.ROOT));
 		this.recordings = new RecordingManager(this);
 		this.labelSelections = new LabelSelectionManager(this);
+		this.zoneSelections = new ZoneSelectionManager();
+		this.surveys = new SurveyManager(this);
 	}
 
 	public static synchronized RailwayGpsServer start(MinecraftServer server) {
@@ -88,6 +94,14 @@ public final class RailwayGpsServer {
 
 	public LabelSelectionManager labelSelections() {
 		return labelSelections;
+	}
+
+	public ZoneSelectionManager zoneSelections() {
+		return zoneSelections;
+	}
+
+	public SurveyManager surveys() {
+		return surveys;
 	}
 
 	public RailwayNetworkV2 reloadV2() throws IOException, NetworkValidationException {

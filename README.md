@@ -127,7 +127,35 @@ convert, or migrate the earlier `stations/`, `junctions/`, or `routes/` director
 
 The implemented v2 core currently includes compound 3D zones, control points and platforms, multi-track
 sections, directed physical tracks, verified transitions, partial track ranges, labels, validation,
-atomic storage, and point-to-point path selection. Point selection is available to operators with:
+atomic storage, server-to-client synchronization, physical-track surveying, and point-to-point path
+selection.
+
+Create a control point by standing at each opposite corner of its inclusive 3D bounding box:
+
+```mcfunction
+/rgps v2 zone first
+/rgps v2 zone second
+/rgps v2 control create <id> <station|junction|terminal|dimension_gate> <name...>
+```
+
+Record each physical rail in its actual travel direction. Two separately recorded rails between the same
+control points automatically belong to the same section and can be paired:
+
+```mcfunction
+/rgps v2 survey start <from_control_point> <to_control_point> <track_id>
+/rgps v2 survey status
+/rgps v2 survey finish
+/rgps v2 track pair <first_track> <opposite_track>
+```
+
+Allowed movement through a control point is explicit. An optional instruction can describe a button or
+other local control:
+
+```mcfunction
+/rgps v2 transition add <id> <control_point> <incoming_track> forward <outgoing_track> forward [instruction...]
+```
+
+Point-to-point label selection is available to operators with:
 
 ```mcfunction
 /rgps label point start
@@ -139,5 +167,5 @@ atomic storage, and point-to-point path selection. Point selection is available 
 
 The two points snap to already registered v2 tracks. Every possible branch is returned as a candidate;
 the command never silently chooses an ambiguous branch. Creating the label increments the v2 network
-revision without changing its physical track graph. Native visual selection, v2 survey authoring,
-client synchronization, and navigation cutover are the next implementation stages.
+revision without changing its physical track graph. Use `/rgps v2 list` to inspect object counts. Native
+visual selection/overlays and navigation cutover are the next implementation stages.
