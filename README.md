@@ -66,6 +66,10 @@ An exact `<incoming_route>><outgoing_route>` instruction takes precedence over t
 
 JourneyMap is optional. When a compatible JourneyMap 6 build is installed on the client, Railway GPS automatically adds non-persistent station and junction waypoints and draws recorded track geometry. Routes remaining in the active navigation plan are highlighted in blue. No JourneyMap classes are bundled in the Railway GPS jar, and the integration entrypoint is not loaded when JourneyMap is absent.
 
+The v2 inspector is synchronized independently and draws every control-point bounding box, physical rail,
+track id, and assigned track name on JourneyMap. Parallel rails remain separate overlays while sharing their
+logical section, which makes incomplete recordings and incorrect pairings visible during setup.
+
 ## Requirements
 
 - Java 25 or newer

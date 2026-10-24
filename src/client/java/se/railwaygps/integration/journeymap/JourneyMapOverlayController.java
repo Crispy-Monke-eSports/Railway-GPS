@@ -19,6 +19,11 @@ import se.railwaygps.model.Route;
 import se.railwaygps.model.Station;
 import se.railwaygps.model.TrackPoint;
 import se.railwaygps.navigation.RoutePlan;
+import se.railwaygps.v2.model.ControlPoint;
+import se.railwaygps.v2.model.PhysicalTrack;
+import se.railwaygps.v2.model.RailwayNetworkV2;
+import se.railwaygps.v2.model.TrackLabel;
+import se.railwaygps.v2.model.ZoneBox;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -31,26 +36,28 @@ final class JourneyMapOverlayController {
 	private static final int JUNCTION_COLOR = 0xE45757;
 	private static final int TRACK_COLOR = 0x89949D;
 	private static final int ACTIVE_ROUTE_COLOR = 0x35B9F3;
+	private static final int V2_TRACK_COLOR = 0x4DB7E5;
+	private static final int V2_ZONE_COLOR = 0xF2C94C;
 	private static final double HALF_TRACK_WIDTH = 1.25;
 
 	private final IClientAPI api;
-	private final List<PolygonOverlay> routeOverlays = new ArrayList<>();
+	private final List<PolygonOverlay> overlays = new ArrayList<>();
 
 	JourneyMapOverlayController(IClientAPI api) {
 		this.api = api;
 	}
 
-	void refresh(RailwayNetwork network, Optional<RoutePlan> activePlan, int currentLeg) {
+	void refresh(RailwayNetwork network, RailwayNetworkV2 networkV2, Optional<RoutePlan> activePlan, int currentLeg) {
 		clear();
-		if (network == RailwayNetwork.EMPTY) {
-			return;
-		}
 
 		for (Station station : network.stations().values()) {
 			addWaypoint(station.id(), station.name(), "Railway GPS station", station.dimension(), station.position(), STATION_COLOR);
 		}
 		for (Junction junction : network.junctions().values()) {
 			addWaypoint(junction.id(), junction.name(), "Railway GPS junction", junction.dimension(), junction.position(), JUNCTION_COLOR);
+		}
+		for (ControlPoint point : networkV2.controlPoints().values()) {
+			addControlPoint(point);
 		}
 
 		if (!api.playerAccepts(RailwayGps.MOD_ID, DisplayType.Polygon)) {
@@ -60,14 +67,33 @@ final class JourneyMapOverlayController {
 		for (Route route : network.routes().values()) {
 			addRoute(route, highlightedRoutes.contains(route.id()));
 		}
+		for (PhysicalTrack track : networkV2.tracks().values()) {
+			addPhysicalTrack(track, networkV2);
+		}
+		for (ControlPoint point : networkV2.controlPoints().values()) {
+			for (ZoneBox box : point.zone().boxes()) {
+				addZoneBox(point, box);
+			}
+		}
 	}
 
 	private void clear() {
 		api.removeAllWaypoints(RailwayGps.MOD_ID);
-		for (PolygonOverlay overlay : routeOverlays) {
+		for (PolygonOverlay overlay : overlays) {
 			api.remove(overlay);
 		}
-		routeOverlays.clear();
+		overlays.clear();
+	}
+
+	private void addControlPoint(ControlPoint point) {
+		ZoneBox first = point.zone().boxes().getFirst();
+		TrackPoint center = new TrackPoint(
+				(first.min().x() + first.max().x()) / 2,
+				(first.min().y() + first.max().y()) / 2,
+				(first.min().z() + first.max().z()) / 2);
+		int color = point.kind() == ControlPoint.Kind.STATION ? STATION_COLOR : JUNCTION_COLOR;
+		addWaypoint("v2-" + point.id(), point.name(), "Railway GPS v2 " + point.kind().name().toLowerCase(),
+				point.zone().dimension(), center, color);
 	}
 
 	private void addWaypoint(String id, String name, String description, String dimension, TrackPoint point, int color) {
@@ -108,10 +134,56 @@ final class JourneyMapOverlayController {
 					.setDisplayOrder(highlighted ? 2000 : 1000);
 			try {
 				api.show(overlay);
-				routeOverlays.add(overlay);
+				overlays.add(overlay);
 			} catch (Exception exception) {
 				RailwayGps.LOGGER.warn("Could not show JourneyMap overlay for route '{}'", route.id(), exception);
 			}
+		}
+	}
+
+	private void addPhysicalTrack(PhysicalTrack track, RailwayNetworkV2 network) {
+		String labelNames = network.labels().values().stream()
+				.filter(label -> label.ranges().stream().anyMatch(range -> range.trackId().equals(track.id())))
+				.sorted(java.util.Comparator.comparingInt(TrackLabel::priority).reversed())
+				.map(TrackLabel::name).distinct().collect(java.util.stream.Collectors.joining(", "));
+		String title = labelNames.isEmpty() ? track.id() : labelNames + " (" + track.id() + ")";
+		int color = network.labels().values().stream()
+				.filter(label -> label.color() != null
+						&& label.ranges().stream().anyMatch(range -> range.trackId().equals(track.id())))
+				.sorted(java.util.Comparator.comparingInt(TrackLabel::priority).reversed())
+				.map(TrackLabel::color).findFirst().orElse(V2_TRACK_COLOR);
+		for (int index = 1; index < track.points().size(); index++) {
+			MapPolygon polygon = segmentPolygon(track.points().get(index - 1), track.points().get(index));
+			if (polygon == null) continue;
+			ShapeProperties shape = new ShapeProperties().setStrokeWidth(1.75f).setStrokeColor(color)
+					.setStrokeOpacity(0.9f).setFillColor(color).setFillOpacity(0.32f);
+			PolygonOverlay overlay = new PolygonOverlay(RailwayGps.MOD_ID, dimension(track.dimension()), shape, polygon);
+			overlay.setOverlayGroupName("Railway GPS v2 physical tracks").setTitle(title).setDisplayOrder(1200);
+			show(overlay, "physical track", track.id());
+		}
+	}
+
+	private void addZoneBox(ControlPoint point, ZoneBox box) {
+		int y = box.max().y();
+		MapPolygon polygon = new MapPolygon(
+				new BlockPos(box.min().x(), y, box.min().z()),
+				new BlockPos(box.max().x() + 1, y, box.min().z()),
+				new BlockPos(box.max().x() + 1, y, box.max().z() + 1),
+				new BlockPos(box.min().x(), y, box.max().z() + 1));
+		ShapeProperties shape = new ShapeProperties().setStrokeWidth(2f).setStrokeColor(V2_ZONE_COLOR)
+				.setStrokeOpacity(0.95f).setFillColor(V2_ZONE_COLOR).setFillOpacity(0.12f);
+		PolygonOverlay overlay = new PolygonOverlay(RailwayGps.MOD_ID, dimension(point.zone().dimension()), shape, polygon);
+		overlay.setOverlayGroupName("Railway GPS v2 control zones")
+				.setTitle(point.name() + " zone (" + point.id() + ")").setDisplayOrder(1100);
+		show(overlay, "control zone", point.id());
+	}
+
+	private void show(PolygonOverlay overlay, String kind, String id) {
+		try {
+			api.show(overlay);
+			overlays.add(overlay);
+		} catch (Exception exception) {
+			RailwayGps.LOGGER.warn("Could not show JourneyMap {} overlay for '{}'", kind, id, exception);
 		}
 	}
 
