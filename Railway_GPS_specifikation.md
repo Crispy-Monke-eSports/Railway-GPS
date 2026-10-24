@@ -840,6 +840,8 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 ### Fas 7 – Navigation
 
 - Ruttberäkning över passager och verifierade övergångar.
+- Navigering får startas var som helst på en registrerad fysisk räls. Vagnen matchas först mot exakt fysisk
+  räls och tillåten färdriktning; en parallell grannräls får inte väljas bara för att den har en giltig rutt.
 - Stabil map matching mellan parallella spår.
 - Omplanering och osäkerhetsläge.
 - Automatiska och manuella instruktioner.

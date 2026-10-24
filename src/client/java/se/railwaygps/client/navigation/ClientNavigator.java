@@ -13,7 +13,9 @@ import se.railwaygps.navigation.PhysicalRoutePlan;
 import se.railwaygps.navigation.PhysicalRoutePlanner;
 import se.railwaygps.navigation.StartInstructionResolver;
 import se.railwaygps.railway.model.ControlPoint;
+import se.railwaygps.railway.model.PhysicalTrack;
 import se.railwaygps.railway.model.RailwayNetwork;
+import se.railwaygps.railway.model.TraversalRef;
 import se.railwaygps.railway.model.ZoneBox;
 
 import java.util.Comparator;
@@ -22,6 +24,7 @@ import java.util.Optional;
 
 public final class ClientNavigator {
 	private static final double TRACK_MATCH_DISTANCE = 6.0;
+	private static final double START_TRACK_MATCH_DISTANCE = 2.0;
 	private static PhysicalRoutePlan plan;
 	private static int currentLeg;
 	private static String networkVersion = "";
@@ -36,14 +39,21 @@ public final class ClientNavigator {
 		if (!network.controlPoints().containsKey(destination)) {
 			return new StartResult(false, Component.translatable("railwaygps.nav.start.unknown_destination", destination));
 		}
-		Optional<String> start = nearestNode(player, network);
-		if (start.isEmpty()) {
-			return new StartResult(false, Component.translatable("railwaygps.nav.start.not_near_node"));
+		boolean onRegisteredTrack = isOnRegisteredTrack(player, network);
+		Optional<PhysicalRoutePlan> calculated = planFromCurrentTrack(player, network, destination);
+		Optional<String> fallbackNode = Optional.empty();
+		if (calculated.isEmpty() && !onRegisteredTrack) {
+			fallbackNode = nearestNode(player, network);
+			calculated = fallbackNode.flatMap(node -> PhysicalRoutePlanner.shortestPath(network, node, destination));
 		}
-		Optional<PhysicalRoutePlan> calculated = PhysicalRoutePlanner.shortestPath(network, start.get(), destination);
 		if (calculated.isEmpty()) {
-			return new StartResult(false, Component.translatable("railwaygps.nav.start.no_route",
-					name(network, start.get()), name(network, destination)));
+			return onRegisteredTrack
+					? new StartResult(false, Component.translatable("railwaygps.nav.start.no_route_from_track",
+							name(network, destination)))
+					: fallbackNode.isPresent()
+					? new StartResult(false, Component.translatable("railwaygps.nav.start.no_route",
+							name(network, fallbackNode.get()), name(network, destination)))
+					: new StartResult(false, Component.translatable("railwaygps.nav.start.not_near_track"));
 		}
 		plan = calculated.get();
 		currentLeg = 0;
@@ -177,8 +187,11 @@ public final class ClientNavigator {
 	private static void replanAfterNetworkChange(LocalPlayer player) {
 		String destination = plan.destination();
 		RailwayNetwork network = ClientRailwayNetwork.network();
-		Optional<String> start = nearestNode(player, network);
-		Optional<PhysicalRoutePlan> replacement = start.flatMap(node -> PhysicalRoutePlanner.shortestPath(network, node, destination));
+		Optional<PhysicalRoutePlan> replacement = planFromCurrentTrack(player, network, destination);
+		if (replacement.isEmpty() && !isOnRegisteredTrack(player, network)) {
+			replacement = nearestNode(player, network)
+					.flatMap(node -> PhysicalRoutePlanner.shortestPath(network, node, destination));
+		}
 		if (replacement.isPresent()) {
 			plan = replacement.get();
 			currentLeg = 0;
@@ -198,15 +211,46 @@ public final class ClientNavigator {
 				.map(ControlPoint::id);
 	}
 
+	private static Optional<PhysicalRoutePlan> planFromCurrentTrack(
+			LocalPlayer player, RailwayNetwork network, String destination) {
+		String dimension = player.level().dimension().identifier().toString();
+		Vec3 position = player.getVehicle() != null ? player.getVehicle().position() : player.position();
+		List<StartingRoute> candidates = network.tracks().values().stream()
+				.filter(track -> track.status() == PhysicalTrack.Status.VERIFIED)
+				.filter(track -> dimension.equals(track.dimension()))
+				.flatMap(track -> track.directions().stream().map(direction -> {
+					PhysicalRouteLeg leg = new PhysicalRouteLeg(track, direction);
+					PolylineMatcher.Match match = PolylineMatcher.nearest(leg.points(),
+							position.x(), position.y(), position.z()).orElse(null);
+					Optional<PhysicalRoutePlan> route = PhysicalRoutePlanner.continueFrom(network,
+							new TraversalRef(track.id(), direction), destination);
+					return new StartingRoute(match, route.orElse(null));
+				}))
+				.filter(candidate -> candidate.match != null)
+				.toList();
+		double nearest = candidates.stream().mapToDouble(candidate -> candidate.match.distanceToTrack())
+				.min().orElse(Double.POSITIVE_INFINITY);
+		return candidates.stream()
+				.filter(candidate -> candidate.plan != null && nearest <= START_TRACK_MATCH_DISTANCE
+						&& candidate.match.distanceToTrack() <= nearest + 0.15)
+				.min(Comparator.comparingDouble((StartingRoute candidate) -> candidate.match.distanceToTrack())
+						.thenComparingDouble(StartingRoute::remainingDistance))
+				.map(StartingRoute::plan);
+	}
+
+	private static boolean isOnRegisteredTrack(LocalPlayer player, RailwayNetwork network) {
+		String dimension = player.level().dimension().identifier().toString();
+		Vec3 position = player.getVehicle() != null ? player.getVehicle().position() : player.position();
+		return network.tracks().values().stream()
+				.filter(track -> track.status() == PhysicalTrack.Status.VERIFIED && dimension.equals(track.dimension()))
+				.map(track -> PolylineMatcher.nearest(track.points(), position.x(), position.y(), position.z()).orElse(null))
+				.anyMatch(match -> match != null && match.distanceToTrack() <= START_TRACK_MATCH_DISTANCE);
+	}
+
 	private static boolean isInsideControlPoint(LocalPlayer player, RailwayNetwork network, String id) {
 		ControlPoint point = network.controlPoints().get(id);
 		return point != null && point.zone().dimension().equals(player.level().dimension().identifier().toString())
 				&& point.zone().containsForExit(player.getX(), player.getY(), player.getZ());
-	}
-
-	private static String name(RailwayNetwork network, String id) {
-		ControlPoint point = network.controlPoints().get(id);
-		return point == null ? id : point.name();
 	}
 
 	private static double distanceSquared(Vec3 position, ZoneBox box) {
@@ -218,6 +262,20 @@ public final class ClientNavigator {
 
 	private static double square(double value) {
 		return value * value;
+	}
+
+	private static String name(RailwayNetwork network, String id) {
+		ControlPoint point = network.controlPoints().get(id);
+		return point == null ? id : point.name();
+	}
+
+	private record StartingRoute(PolylineMatcher.Match match, PhysicalRoutePlan plan) {
+		private double remainingDistance() {
+			double currentLength = plan.legs().getFirst().track().length();
+			double geometryRemaining = match.trackLength() - match.distanceAlong();
+			return plan.distance() - currentLength
+					+ geometryRemaining * currentLength / Math.max(0.001, match.trackLength());
+		}
 	}
 
 	public record StartResult(boolean success, Component message) {

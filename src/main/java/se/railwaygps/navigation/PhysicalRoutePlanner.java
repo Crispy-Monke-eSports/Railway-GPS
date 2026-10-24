@@ -29,19 +29,38 @@ public final class PhysicalRoutePlanner {
 			return Optional.of(new PhysicalRoutePlan(start, destination, List.of(), 0));
 		}
 
-		Map<TraversalRef, Double> distances = new HashMap<>();
-		Map<TraversalRef, TraversalRef> previous = new HashMap<>();
-		PriorityQueue<StateDistance> queue = new PriorityQueue<>(Comparator.comparingDouble(StateDistance::distance));
+		Map<TraversalRef, Double> initial = new HashMap<>();
 		for (PhysicalTrack track : network.tracks().values()) {
 			if (track.status() != PhysicalTrack.Status.VERIFIED) continue;
 			for (TrackDirection direction : track.directions()) {
 				if (RailwayNetworkValidator.startPoint(track, direction).equals(start)) {
 					TraversalRef traversal = new TraversalRef(track.id(), direction);
-					distances.put(traversal, track.length());
-					queue.add(new StateDistance(traversal, track.length()));
+					initial.put(traversal, track.length());
 				}
 			}
 		}
+		return search(network, start, destination, initial);
+	}
+
+	/** Continues a route from the physical traversal currently occupied by the minecart. */
+	public static Optional<PhysicalRoutePlan> continueFrom(
+			RailwayNetwork network, TraversalRef current, String destination) {
+		PhysicalTrack track = network.tracks().get(current.trackId());
+		if (track == null || track.status() != PhysicalTrack.Status.VERIFIED
+				|| !track.directions().contains(current.direction())
+				|| !network.controlPoints().containsKey(destination)) {
+			return Optional.empty();
+		}
+		return search(network, RailwayNetworkValidator.startPoint(track, current.direction()), destination,
+				Map.of(current, track.length()));
+	}
+
+	private static Optional<PhysicalRoutePlan> search(RailwayNetwork network, String start, String destination,
+			Map<TraversalRef, Double> initial) {
+		Map<TraversalRef, Double> distances = new HashMap<>(initial);
+		Map<TraversalRef, TraversalRef> previous = new HashMap<>();
+		PriorityQueue<StateDistance> queue = new PriorityQueue<>(Comparator.comparingDouble(StateDistance::distance));
+		initial.forEach((traversal, distance) -> queue.add(new StateDistance(traversal, distance)));
 
 		while (!queue.isEmpty()) {
 			StateDistance current = queue.remove();

@@ -32,6 +32,19 @@ class PhysicalRoutePlannerTest {
 				PhysicalInstructionResolver.between(network, plan.legs().get(0), plan.legs().get(1)).customText());
 	}
 
+	@Test
+	void continuesFromTrackOccupiedBetweenControlPoints() throws Exception {
+		RailwayNetwork network = baseNetwork();
+		TraversalRef current = new TraversalRef("a_b", TrackDirection.FORWARD);
+		assertTrue(PhysicalRoutePlanner.continueFrom(network, current, "c").isEmpty());
+
+		network = RailwayNetworkEditor.addTransition(network, "through_b", "b", current,
+				new TraversalRef("b_c", TrackDirection.FORWARD), null);
+		PhysicalRoutePlan plan = PhysicalRoutePlanner.continueFrom(network, current, "c").orElseThrow();
+
+		assertEquals(List.of("a_b", "b_c"), plan.legs().stream().map(leg -> leg.track().id()).toList());
+	}
+
 	private static RailwayNetwork baseNetwork() throws Exception {
 		RailwayNetwork network = RailwayNetwork.EMPTY;
 		network = RailwayNetworkEditor.addControlPoint(network, "a", "A", ControlPoint.Kind.STATION, zone(0));

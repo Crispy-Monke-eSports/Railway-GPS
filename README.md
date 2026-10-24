@@ -14,6 +14,8 @@ The mod currently provides:
 - Partial and multi-track names selected between two points without driving the section again.
 - Server-authoritative validation, atomic JSON storage and digest-verified client synchronization.
 - Shortest-path navigation over verified tracks and permitted transitions.
+- Navigation can start anywhere on a registered physical track; the occupied rail and its permitted direction
+  become the first route leg, including on parallel double track.
 - A minecart HUD with automatic straight/left/right/turn-back guidance and custom instructions.
 - Optional JourneyMap overlays for control zones, physical tracks, names and the active route.
 - A `B`-key in-world editor for click-selecting control-point bounding boxes with a live outline and action HUD.
