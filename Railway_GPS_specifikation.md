@@ -69,7 +69,7 @@ När två parallella spår inte kan särskiljas säkert ska moddet visa **Osäke
 | **Övergång** | Tillåten koppling från en inkommande passage till en utgående passage vid en kontrollpunkt. |
 | **Namnlager** | Ett valfritt namn som läggs över hela eller delar av ett eller flera spår, exempelvis Riksettan eller Centralbron. |
 | **Resväg** | Den väg GPS:en beräknar som en följd av passager och övergångar. |
-| **Inspelning/survey** | En administratörs observerade minecart-färd som används för att registrera fysisk geometri och genomförda övergångar. |
+| **Inspelning/survey** | En inspelningsbehörig användares observerade minecart-färd som används för att registrera fysisk geometri och genomförda övergångar. |
 
 ## 4. Systemarkitektur
 
@@ -79,12 +79,12 @@ Servern ansvarar för att:
 
 1. Lagra den auktoritativa järnvägsmodellen.
 2. Hantera kontrollpunkter, zoner, spårsektioner, fysiska spår, övergångar och namnlager.
-3. Spela in administratörers minecart-färder.
+3. Spela in minecart-färder för personer med inspelningsbehörighet.
 4. Skapa förslag på sektioner, spårpar och observerade övergångar.
 5. Validera alla ändringar innan de publiceras.
 6. Bygga en riktad navigationsgraf.
 7. Distribuera versionsmärkta nätverkssnapshots och ändringar till kompatibla klienter.
-8. Behörighetskontrollera läsning, inspektion och redigering.
+8. Separat behörighetskontrollera navigation, inspektion, namngivning, inspelning och administration/publicering.
 
 Serverdelen får inte kräva JourneyMap eller ladda klientklasser på en dedikerad server.
 
@@ -98,7 +98,7 @@ Klienten ansvarar för att:
 4. Matcha minecartens position och riktning mot rätt fysiskt spår.
 5. Visa HUD, aktiv resväg och manöverinstruktioner.
 6. Visa ett inbyggt visuellt nätverksläge.
-7. Ge administratörer markerings-, gransknings- och felsökningsverktyg.
+7. Ge användare med lämpliga separata inspektions-, namn-, inspelnings- och adminbehörigheter deras respektive verktyg.
 8. Valfritt spegla samma vy i JourneyMap.
 
 Spelare utan Railway GPS ska kunna ansluta och spela normalt. Servern skickar endast modspecifika data till kompatibla klienter.
@@ -500,7 +500,7 @@ Inspelningen sker på serversidan och kopplas till den **inspelningsbehöriga** 
 
 ### 8.3 Strikt avbrott
 
-Om administratören lämnar minecarten avbryts inspelningen omedelbart och all tillfällig data kastas. Samma regel gäller vid:
+Om den inspelningsbehöriga användaren lämnar minecarten avbryts inspelningen omedelbart och all tillfällig data kastas. Samma regel gäller vid:
 
 - frånkoppling;
 - död;
@@ -709,7 +709,7 @@ Railway GPS äger alltid grafen, namnen och navigeringen. JourneyMap är endast 
 Föreslaget anslutningsflöde:
 
 1. Servern laddar och validerar senaste aktiva revision.
-2. En kompatibel klient annonserar stöd och behörighetsnivå.
+2. En kompatibel klient annonserar protokollstöd; **servern bestämmer själv** användarens separata inspektions-, namn-, inspelnings- och administrations-/publiceringsrättigheter och filtrerar snapshots därefter.
 3. Servern skickar en kompakt snapshot med nätverksversion/hash.
 4. Klienten bygger rumsliga index och renderingscache.
 5. Senare ändringar skickas som revisionerade deltauppdateringar eller ny snapshot vid behov.
