@@ -10,6 +10,7 @@ import se.railwaygps.client.hud.NavigationHud;
 import se.railwaygps.client.navigation.ClientNavigator;
 import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.model.RailwayNetwork;
+import se.railwaygps.network.NetworkSnapshotDigest;
 import se.railwaygps.network.NetworkSnapshotPayload;
 import se.railwaygps.storage.NetworkJsonCodec;
 
@@ -22,6 +23,12 @@ public final class RailwayGpsClient implements ClientModInitializer {
 		ClientTickEvents.END_CLIENT_TICK.register(ClientNavigator::tick);
 		ClientPlayNetworking.registerGlobalReceiver(NetworkSnapshotPayload.TYPE, (payload, context) -> {
 			try {
+				if (!NetworkSnapshotDigest.verifies(payload.version(), payload.json())) {
+					RailwayGps.LOGGER.error(
+							"Rejected Railway GPS network snapshot: advertised digest '{}' does not match the received JSON; keeping the previous network",
+							payload.version());
+					return;
+				}
 				RailwayNetwork network = NetworkJsonCodec.decode(payload.json());
 				ClientRailwayNetwork.replace(payload.version(), network);
 				RailwayGps.LOGGER.info("Received Railway GPS network {}: {} stations, {} junctions, {} routes",
