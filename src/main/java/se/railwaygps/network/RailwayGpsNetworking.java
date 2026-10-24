@@ -9,11 +9,6 @@ import se.railwaygps.model.RailwayNetwork;
 import se.railwaygps.server.RailwayGpsServer;
 import se.railwaygps.storage.NetworkJsonCodec;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
-
 public final class RailwayGpsNetworking {
 	private RailwayGpsNetworking() {
 	}
@@ -42,15 +37,6 @@ public final class RailwayGpsNetworking {
 
 	private static NetworkSnapshotPayload createPayload(RailwayNetwork network) {
 		String json = NetworkJsonCodec.encode(network);
-		return new NetworkSnapshotPayload(version(json), json);
-	}
-
-	private static String version(String json) {
-		try {
-			byte[] digest = MessageDigest.getInstance("SHA-256").digest(json.getBytes(StandardCharsets.UTF_8));
-			return HexFormat.of().formatHex(digest);
-		} catch (NoSuchAlgorithmException exception) {
-			throw new IllegalStateException("SHA-256 is unavailable", exception);
-		}
+		return new NetworkSnapshotPayload(NetworkSnapshotDigest.of(json), json);
 	}
 }
