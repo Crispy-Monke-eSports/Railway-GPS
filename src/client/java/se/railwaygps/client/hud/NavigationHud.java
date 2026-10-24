@@ -2,6 +2,7 @@ package se.railwaygps.client.hud;
 
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import se.railwaygps.RailwayGps;
@@ -32,12 +33,15 @@ public final class NavigationHud {
 			int y = 12;
 			graphics.fill(x, y, x + width, y + height, 0xB0101519);
 			graphics.fill(x, y, x + 3, y + height, statusColor(snapshot.status()));
-			graphics.text(client.font, "RAILWAY GPS  •  " + snapshot.destination(), x + 10, y + 8, 0xFFFFFFFF, true);
+			graphics.text(client.font, Component.translatable("railwaygps.hud.title", snapshot.destination()),
+					x + 10, y + 8, 0xFFFFFFFF, true);
 			graphics.text(client.font, snapshot.instruction(), x + 10, y + 24, statusColor(snapshot.status()), true);
-			graphics.text(client.font, "Next: %s  •  %.0f blocks".formatted(snapshot.nextNode(), snapshot.distanceToNext()),
+			graphics.text(client.font, Component.translatable("railwaygps.hud.next",
+							snapshot.nextNode(), Math.round(snapshot.distanceToNext())),
 					x + 10, y + 40, 0xFFE2E8EC, true);
-			graphics.text(client.font, "Remaining: %.0f blocks  •  %d connections".formatted(
-						snapshot.distanceRemaining(), snapshot.junctionsRemaining()), x + 10, y + 55, 0xFF9EABB3, true);
+			graphics.text(client.font, Component.translatable("railwaygps.hud.remaining",
+							Math.round(snapshot.distanceRemaining()), snapshot.junctionsRemaining()),
+					x + 10, y + 55, 0xFF9EABB3, true);
 		});
 	}
 

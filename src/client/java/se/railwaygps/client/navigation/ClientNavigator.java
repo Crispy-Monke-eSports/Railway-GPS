@@ -33,22 +33,23 @@ public final class ClientNavigator {
 	public static StartResult start(LocalPlayer player, String destination) {
 		RailwayNetwork network = ClientRailwayNetwork.network();
 		if (!network.containsNode(destination)) {
-			return new StartResult(false, "Unknown destination '" + destination + "'");
+			return new StartResult(false, Component.translatable("railwaygps.nav.start.unknown_destination", destination));
 		}
 		Optional<String> start = nearestNode(player, network);
 		if (start.isEmpty()) {
-			return new StartResult(false, "Start navigation near a registered station or junction");
+			return new StartResult(false, Component.translatable("railwaygps.nav.start.not_near_node"));
 		}
 		Optional<RoutePlan> calculated = RoutePlanner.shortestPath(network, start.get(), destination);
 		if (calculated.isEmpty()) {
-			return new StartResult(false, "No permitted railway route from '" + start.get() + "' to '" + destination + "'");
+			return new StartResult(false, Component.translatable("railwaygps.nav.start.no_route",
+					network.nodeName(start.get()), network.nodeName(destination)));
 		}
 		plan = calculated.get();
 		currentLeg = 0;
 		networkVersion = ClientRailwayNetwork.version();
 		revision++;
 		update(player);
-		return new StartResult(true, "Navigating to " + network.nodeName(destination));
+		return new StartResult(true, Component.translatable("railwaygps.nav.start.started", network.nodeName(destination)));
 	}
 
 	public static void stop() {
@@ -94,7 +95,7 @@ public final class ClientNavigator {
 		RailwayNetwork network = ClientRailwayNetwork.network();
 		if (currentLeg >= plan.legs().size()) {
 			snapshot = new NavigationSnapshot(network.nodeName(plan.destination()), plan.destination(),
-					translate("railwaygps.instruction.arrived"),
+					Component.translatable("railwaygps.instruction.arrived"),
 					0, 0, 0, NavigationStatus.ARRIVED);
 			return;
 		}
@@ -127,8 +128,8 @@ public final class ClientNavigator {
 		}
 		NavigationStatus status = match.distanceToTrack() <= TRACK_MATCH_DISTANCE
 				? NavigationStatus.ON_ROUTE : NavigationStatus.UNCERTAIN;
-		String instruction = status == NavigationStatus.ON_ROUTE
-				? instruction(player, network, leg) : translate("railwaygps.instruction.uncertain");
+		Component instruction = status == NavigationStatus.ON_ROUTE
+				? instruction(player, network, leg) : Component.translatable("railwaygps.instruction.uncertain");
 		snapshot = new NavigationSnapshot(
 				network.nodeName(plan.destination()),
 				network.nodeName(leg.to()),
@@ -141,11 +142,11 @@ public final class ClientNavigator {
 
 	private static NavigationSnapshot uncertain(RailwayNetwork network, RouteLeg leg) {
 		return new NavigationSnapshot(network.nodeName(plan.destination()), network.nodeName(leg.to()),
-				translate("railwaygps.instruction.uncertain"),
+				Component.translatable("railwaygps.instruction.uncertain"),
 				leg.route().distance(), remainingPlannedDistance(), plan.legs().size() - currentLeg - 1, NavigationStatus.UNCERTAIN);
 	}
 
-	private static String instruction(LocalPlayer player, RailwayNetwork network, RouteLeg leg) {
+	private static Component instruction(LocalPlayer player, RailwayNetwork network, RouteLeg leg) {
 		JunctionInstructionResolver.Instruction resolved;
 		if (currentLeg == 0 && isNearNode(player, network, leg.from(), network.nodeRadius(leg.from()))) {
 			Vec3 heading = player.getVehicle() != null ? player.getVehicle().getDeltaMovement() : Vec3.ZERO;
@@ -156,15 +157,15 @@ public final class ClientNavigator {
 		} else if (currentLeg + 1 < plan.legs().size()) {
 			resolved = JunctionInstructionResolver.between(network, leg, plan.legs().get(currentLeg + 1));
 		} else {
-			return translate("railwaygps.instruction.continue", network.nodeName(leg.to()));
+			return Component.translatable("railwaygps.instruction.continue", network.nodeName(leg.to()));
 		}
 		return switch (resolved.direction()) {
-			case CUSTOM -> resolved.customText();
-			case STRAIGHT -> translate("railwaygps.instruction.straight");
-			case LEFT -> translate("railwaygps.instruction.left");
-			case RIGHT -> translate("railwaygps.instruction.right");
-			case BACK -> translate("railwaygps.instruction.back");
-			case UNKNOWN -> translate("railwaygps.instruction.continue", network.nodeName(leg.to()));
+			case CUSTOM -> Component.literal(resolved.customText());
+			case STRAIGHT -> Component.translatable("railwaygps.instruction.straight");
+			case LEFT -> Component.translatable("railwaygps.instruction.left");
+			case RIGHT -> Component.translatable("railwaygps.instruction.right");
+			case BACK -> Component.translatable("railwaygps.instruction.back");
+			case UNKNOWN -> Component.translatable("railwaygps.instruction.continue", network.nodeName(leg.to()));
 		};
 	}
 
@@ -207,10 +208,6 @@ public final class ClientNavigator {
 		return distanceSquared(player.position(), network.nodePosition(node)) <= square(radius);
 	}
 
-	private static String translate(String key, Object... arguments) {
-		return Component.translatable(key, arguments).getString();
-	}
-
 	private static double distanceSquared(Vec3 position, TrackPoint point) {
 		return square(position.x() - (point.x() + 0.5))
 				+ square(position.y() - (point.y() + 0.5))
@@ -221,6 +218,6 @@ public final class ClientNavigator {
 		return value * value;
 	}
 
-	public record StartResult(boolean success, String message) {
+	public record StartResult(boolean success, Component message) {
 	}
 }
