@@ -51,7 +51,7 @@ JourneyMap is optional. When a compatible JourneyMap 6 build is installed on the
 
 - Java 25 or newer
 - Minecraft Java Edition 26.3
-- Fabric Loader 0.20.1 or newer
+- Fabric Loader 0.19.5 or newer
 - Fabric API 0.165.0+26.3
 
 ## Build and test
