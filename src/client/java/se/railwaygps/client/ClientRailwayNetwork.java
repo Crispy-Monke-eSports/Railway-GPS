@@ -1,6 +1,6 @@
 package se.railwaygps.client;
 
-import se.railwaygps.model.RailwayNetwork;
+import se.railwaygps.railway.model.RailwayNetwork;
 
 public final class ClientRailwayNetwork {
 	private static volatile RailwayNetwork network = RailwayNetwork.EMPTY;

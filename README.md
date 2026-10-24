@@ -1,44 +1,106 @@
 # Railway GPS
 
-Railway GPS is a Fabric mod for non-invasive navigation on large vanilla Minecraft railway networks. Administrators register stations and junctions, record actual minecart paths, and clients use that server-maintained graph for route guidance.
+Railway GPS is a Fabric mod for navigation on large vanilla Minecraft railway networks. The authoritative
+model describes physical rails, multi-track sections, control-point zones, allowed transitions and optional
+names such as Centralbron or Riksettan.
 
-This repository currently contains the first Phase 1 foundation:
+The mod currently provides:
 
-- Fabric 26.3 project with separated common and client source sets.
-- World-local `railwaygps/stations`, `junctions`, and `routes` JSON storage.
-- Immutable station, junction, route, and network models.
-- Whole-network validation and safe reload that retains the last valid in-memory network.
-- Atomic creation of individual JSON files without accidental overwrite.
-- Operator-only `/rgps station add <id>`, `/rgps node add <id>`, `/rgps network list`, and `/rgps reload` commands.
-- Server-side minecart route recording bound to one administrator and one specific minecart.
-- Strict recording cancellation on dismount, cart swap/destruction, death, disconnect, or dimension change.
-- Rail-block sampling, travelled-distance measurement, and conservative straight-line geometry simplification.
-- Dijkstra shortest-path planning with directed, bidirectional, and parallel route support.
-- Versioned server-to-client network snapshots, sent only to Railway GPS-capable clients and refreshed after valid network changes.
-- Client-side destination selection, route following, basic track map matching, and a minecart-only navigation HUD.
-- Automatic straight/left/right/turn-back instructions derived from recorded incoming and outgoing track geometry.
-- Per-node custom transition instructions for physical controls whose meaning cannot be inferred from track geometry.
-- Optional JourneyMap 6/API 2 integration for station and junction waypoints, recorded track overlays, and active-route highlighting.
+- Compound 3D zones for stations, junctions, terminals and dimension gates.
+- Directed physical-track recording from a minecart, including position-jump protection.
+- Separate parallel rails grouped into one section and optionally paired as opposite directions.
+- Explicit permitted transitions through control points, with optional custom instructions such as
+  “Välj knappen för Martyrön”.
+- Partial and multi-track names selected between two points without driving the section again.
+- Server-authoritative validation, atomic JSON storage and digest-verified client synchronization.
+- Shortest-path navigation over verified tracks and permitted transitions.
+- A minecart HUD with automatic straight/left/right/turn-back guidance and custom instructions.
+- Optional JourneyMap overlays for control zones, physical tracks, names and the active route.
 
-Recording commands:
+There is one network implementation and one authoritative data file:
 
-```mcfunction
-/rgps record start <from> <to> <route_id>
-/rgps record status
-/rgps record finish
-/rgps record cancel
-/rgps route list
-/rgps route info <route_id>
-/rgps route remove <route_id>
-/rgps route rename <old_id> <new_id>
-/rgps instruction set <node_id> <incoming_route|*> <outgoing_route> <text...>
-/rgps instruction list <node_id>
-/rgps instruction remove <node_id> <incoming_route|*> <outgoing_route>
+```text
+<world>/railwaygps/network.json
 ```
 
-Recording must start within the source node's radius and finish within the destination node's radius. Stations currently use a 16-block radius; junctions use their configured `radius`. Finishing is always explicit. Recorded routes are directed by default.
+The document currently uses schema version 1. This test-phase implementation intentionally does not
+migrate data from earlier prototypes.
 
-Players with Railway GPS installed can begin the first navigation prototype near a registered node:
+## Registering the railway
+
+All editing commands require operator permissions.
+
+### Control-point bounding boxes
+
+Stand at two opposite block corners of the inclusive 3D zone, then create the control point:
+
+```mcfunction
+/rgps zone first
+/rgps zone second
+/rgps control create <id> <station|junction|terminal|dimension_gate> <name...>
+```
+
+The zone determines when a vehicle has entered or left a station or junction. A one-block exit margin
+prevents rapid enter/leave flicker at the boundary.
+
+### Physical tracks and double track
+
+Start inside the source zone while riding a minecart, drive to the destination zone, and finish explicitly:
+
+```mcfunction
+/rgps survey start <from_control_point> <to_control_point> <track_id>
+/rgps survey status
+/rgps survey finish
+/rgps survey cancel
+```
+
+Record each usable direction separately. Rails between the same two control points automatically share a
+section. Pair opposite directional rails when they represent the two sides of the same railway:
+
+```mcfunction
+/rgps track pair <first_track> <opposite_track>
+```
+
+### Permitted transitions and instructions
+
+Navigation only crosses a control point when the exact incoming-to-outgoing movement is registered:
+
+```mcfunction
+/rgps transition add <id> <control_point> <incoming_track> forward <outgoing_track> forward
+```
+
+Append text when the player must operate a named control:
+
+```mcfunction
+/rgps transition add mot_martyron sigma_station incoming_track forward martyr_track forward Välj knappen för Martyrön
+```
+
+### Naming part of the railway
+
+Mark two positions near already recorded rails:
+
+```mcfunction
+/rgps label point start
+/rgps label point end
+/rgps label candidates
+/rgps label create <id> <way|bridge|tunnel|district|custom> <candidate> <include_paired> <name...>
+/rgps label cancel
+```
+
+Every valid branch is presented as a candidate; an ambiguous path is never selected silently. Set
+`include_paired` to `true` to apply the name to the corresponding opposite rail as well. A name can span
+part of one track or many tracks and transitions, so long roads such as Riksettan can pass several signals.
+
+Inspect counts or reload the validated document with:
+
+```mcfunction
+/rgps network list
+/rgps reload
+```
+
+## Navigation
+
+Start near or inside a registered control-point zone:
 
 ```mcfunction
 /rgpsnav start <destination_id>
@@ -46,29 +108,8 @@ Players with Railway GPS installed can begin the first navigation prototype near
 /rgpsnav stop
 ```
 
-The HUD compares the last part of the incoming recorded track with the first part of the outgoing track and displays straight, left, right, or turn-back. At the journey's starting node it compares the outgoing track with the minecart's movement or the player's view direction.
-
-Use a custom transition instruction when the player must operate a named button or when geometry alone is ambiguous. For example:
-
-```mcfunction
-/rgps instruction set sigma_station incoming_line martyr_island Välj knappen för Martyrön
-```
-
-Use `*` as the incoming route for an instruction that applies when navigation starts at the node, and as a fallback for any arrival route:
-
-```mcfunction
-/rgps instruction set sigma_station * martyr_island Välj knappen för Martyrön
-```
-
-An exact `<incoming_route>><outgoing_route>` instruction takes precedence over the `*` fallback, and both take precedence over automatic geometry instructions.
-
-## JourneyMap
-
-JourneyMap is optional. When a compatible JourneyMap 6 build is installed on the client, Railway GPS automatically adds non-persistent station and junction waypoints and draws recorded track geometry. Routes remaining in the active navigation plan are highlighted in blue. No JourneyMap classes are bundled in the Railway GPS jar, and the integration entrypoint is not loaded when JourneyMap is absent.
-
-The v2 inspector is synchronized independently and draws every control-point bounding box, physical rail,
-track id, and assigned track name on JourneyMap. Parallel rails remain separate overlays while sharing their
-logical section, which makes incomplete recordings and incorrect pairings visible during setup.
+The planner follows track direction and only uses enabled explicit transitions. JourneyMap highlights the
+remaining physical tracks in the active plan.
 
 ## Requirements
 
@@ -76,6 +117,7 @@ logical section, which makes incomplete recordings and incorrect pairings visibl
 - Minecraft Java Edition 26.3
 - Fabric Loader 0.19.5 or newer
 - Fabric API 0.165.0+26.3
+- JourneyMap 6 with API 2 is optional
 
 ## Build and test
 
@@ -89,87 +131,8 @@ For a development client:
 ./gradlew runClient
 ```
 
-Generated mod jars are written to `build/libs/`.
+Generated jars are written to `build/libs/`. Every push to `main` is built and tested by GitHub Actions;
+the distributable jar is available from that run's Artifacts section as `railway-gps-<commit-sha>`.
 
-Every push to `main` is also built and tested by GitHub Actions. The distributable jar can be downloaded from that workflow run's **Artifacts** section as `railway-gps-<commit-sha>`.
-
-## JSON data
-
-Data is stored below the active world directory:
-
-```text
-railwaygps/
-├── stations/
-├── junctions/
-└── routes/
-```
-
-IDs must match `[a-z0-9][a-z0-9_-]{0,63}`. A filename must match the object's `id`. Track positions are encoded as `[x, y, z]`, as described in the project specification.
-
-Stations and junctions may contain an `instructions` object. Keys describe `incoming>outgoing` route transitions; `*>outgoing` is the start/fallback form:
-
-```json
-{
-  "id": "sigma_station",
-  "name": "Sigma station",
-  "dimension": "minecraft:overworld",
-  "position": [8, 81, 60],
-  "instructions": {
-    "incoming_line>martyr_island": "Välj knappen för Martyrön",
-    "*>central": "Välj knappen mot Central"
-  }
-}
-```
-
-The implementation roadmap and product decisions remain in [Railway_GPS_specifikation.md](Railway_GPS_specifikation.md).
-
-## Architecture v2 implementation
-
-Work on the clean-break physical-track architecture has started. Its authoritative document is
-`<world>/railwaygps/network-v2.json` with schema version 2. The v2 loader intentionally does not inspect,
-convert, or migrate the earlier `stations/`, `junctions/`, or `routes/` directories.
-
-The implemented v2 core currently includes compound 3D zones, control points and platforms, multi-track
-sections, directed physical tracks, verified transitions, partial track ranges, labels, validation,
-atomic storage, server-to-client synchronization, physical-track surveying, and point-to-point path
-selection.
-
-Create a control point by standing at each opposite corner of its inclusive 3D bounding box:
-
-```mcfunction
-/rgps v2 zone first
-/rgps v2 zone second
-/rgps v2 control create <id> <station|junction|terminal|dimension_gate> <name...>
-```
-
-Record each physical rail in its actual travel direction. Two separately recorded rails between the same
-control points automatically belong to the same section and can be paired:
-
-```mcfunction
-/rgps v2 survey start <from_control_point> <to_control_point> <track_id>
-/rgps v2 survey status
-/rgps v2 survey finish
-/rgps v2 track pair <first_track> <opposite_track>
-```
-
-Allowed movement through a control point is explicit. An optional instruction can describe a button or
-other local control:
-
-```mcfunction
-/rgps v2 transition add <id> <control_point> <incoming_track> forward <outgoing_track> forward [instruction...]
-```
-
-Point-to-point label selection is available to operators with:
-
-```mcfunction
-/rgps label point start
-/rgps label point end
-/rgps label candidates
-/rgps label create <id> <way|bridge|tunnel|district|custom> <candidate> <include_paired> <name...>
-/rgps label cancel
-```
-
-The two points snap to already registered v2 tracks. Every possible branch is returned as a candidate;
-the command never silently chooses an ambiguous branch. Creating the label increments the v2 network
-revision without changing its physical track graph. Use `/rgps v2 list` to inspect object counts. Native
-visual selection/overlays and navigation cutover are the next implementation stages.
+The complete product and data-model decisions are documented in
+[Railway_GPS_specifikation.md](Railway_GPS_specifikation.md).

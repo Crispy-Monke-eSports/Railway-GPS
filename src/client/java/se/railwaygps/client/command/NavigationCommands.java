@@ -20,9 +20,7 @@ public final class NavigationCommands {
 						.then(ClientCommands.literal("start")
 								.then(ClientCommands.argument("destination", StringArgumentType.word())
 										.suggests((context, builder) -> SharedSuggestionProvider.suggest(
-												java.util.stream.Stream.concat(
-														ClientRailwayNetwork.network().stations().keySet().stream(),
-														ClientRailwayNetwork.network().junctions().keySet().stream()), builder))
+												ClientRailwayNetwork.network().controlPoints().keySet().stream(), builder))
 										.executes(context -> {
 											String destination = StringArgumentType.getString(context, "destination");
 											ClientNavigator.StartResult result = ClientNavigator.start(context.getSource().getPlayer(), destination);

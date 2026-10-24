@@ -6,7 +6,6 @@ import journeymap.api.v2.common.JourneyMapPlugin;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import se.railwaygps.RailwayGps;
 import se.railwaygps.client.ClientRailwayNetwork;
-import se.railwaygps.client.ClientRailwayNetworkV2;
 import se.railwaygps.client.navigation.ClientNavigator;
 
 /** Loaded exclusively by JourneyMap's optional Fabric entrypoint. */
@@ -14,7 +13,6 @@ import se.railwaygps.client.navigation.ClientNavigator;
 public final class RailwayGpsJourneyMapPlugin implements IClientPlugin {
 	private JourneyMapOverlayController overlays;
 	private String observedNetworkVersion;
-	private String observedNetworkV2Version;
 	private long observedNavigationRevision = -1;
 
 	@Override
@@ -31,16 +29,14 @@ public final class RailwayGpsJourneyMapPlugin implements IClientPlugin {
 
 	private void refreshWhenChanged() {
 		String version = ClientRailwayNetwork.version();
-		String versionV2 = ClientRailwayNetworkV2.version();
 		long navigationRevision = ClientNavigator.revision();
-		if (version.equals(observedNetworkVersion) && versionV2.equals(observedNetworkV2Version)
+		if (version.equals(observedNetworkVersion)
 				&& navigationRevision == observedNavigationRevision) {
 			return;
 		}
 		observedNetworkVersion = version;
-		observedNetworkV2Version = versionV2;
 		observedNavigationRevision = navigationRevision;
-		overlays.refresh(ClientRailwayNetwork.network(), ClientRailwayNetworkV2.network(),
+		overlays.refresh(ClientRailwayNetwork.network(),
 				ClientNavigator.activePlan(), ClientNavigator.currentLegIndex());
 	}
 }
