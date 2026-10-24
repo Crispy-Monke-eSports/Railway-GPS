@@ -47,4 +47,35 @@ class NetworkStorageTest {
 		assertThrows(IllegalArgumentException.class, () -> storage.createStation(
 				new Station("../escape", "Escape", "minecraft:overworld", new TrackPoint(0, 64, 0))));
 	}
+
+	@Test
+	void renamesAndRemovesOnlyTheSelectedRoute() throws Exception {
+		NetworkStorage storage = storageWithConnectedNodes();
+		Route first = route("first");
+		Route second = route("second");
+		storage.createRoute(first);
+		storage.createRoute(second);
+
+		storage.renameRoute(first, "renamed");
+		RailwayNetwork renamed = storage.load();
+		assertTrue(!renamed.routes().containsKey("first"));
+		assertTrue(renamed.routes().containsKey("renamed"));
+		assertEquals("Line", renamed.routes().get("renamed").name());
+
+		storage.removeRoute("renamed");
+		RailwayNetwork remaining = storage.load();
+		assertEquals(java.util.Set.of("second"), remaining.routes().keySet());
+	}
+
+	private NetworkStorage storageWithConnectedNodes() throws Exception {
+		NetworkStorage storage = new NetworkStorage(worldRoot);
+		storage.createStation(new Station("central", "Central", "minecraft:overworld", new TrackPoint(0, 64, 0)));
+		storage.createJunction(new Junction("crossing", "Crossing", "minecraft:overworld", new TrackPoint(20, 64, 0), 25));
+		return storage;
+	}
+
+	private static Route route(String id) {
+		return new Route(id, "Line", "central", "crossing", "minecraft:overworld", false, 20,
+				List.of(new TrackPoint(0, 64, 0), new TrackPoint(20, 64, 0)));
+	}
 }

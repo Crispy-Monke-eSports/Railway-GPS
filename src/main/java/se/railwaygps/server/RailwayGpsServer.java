@@ -5,6 +5,7 @@ import net.minecraft.world.level.storage.LevelResource;
 import se.railwaygps.RailwayGps;
 import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.model.RailwayNetwork;
+import se.railwaygps.recording.RecordingManager;
 import se.railwaygps.storage.NetworkStorage;
 
 import java.io.IOException;
@@ -15,10 +16,12 @@ public final class RailwayGpsServer {
 	private static final Map<MinecraftServer, RailwayGpsServer> INSTANCES = new WeakHashMap<>();
 
 	private final NetworkStorage storage;
+	private final RecordingManager recordings;
 	private RailwayNetwork network = RailwayNetwork.EMPTY;
 
 	private RailwayGpsServer(MinecraftServer server) {
 		this.storage = new NetworkStorage(server.getWorldPath(LevelResource.ROOT));
+		this.recordings = new RecordingManager(this);
 	}
 
 	public static synchronized RailwayGpsServer start(MinecraftServer server) {
@@ -53,6 +56,10 @@ public final class RailwayGpsServer {
 
 	public RailwayNetwork network() {
 		return network;
+	}
+
+	public RecordingManager recordings() {
+		return recordings;
 	}
 
 	/** Loads into a temporary model and only swaps the active network after full validation. */

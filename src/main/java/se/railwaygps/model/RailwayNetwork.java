@@ -27,4 +27,18 @@ public record RailwayNetwork(
 		Junction junction = junctions.get(id);
 		return junction == null ? null : junction.dimension();
 	}
+
+	public TrackPoint nodePosition(String id) {
+		Station station = stations.get(id);
+		if (station != null) {
+			return station.position();
+		}
+		Junction junction = junctions.get(id);
+		return junction == null ? null : junction.position();
+	}
+
+	public double nodeRadius(String id) {
+		Junction junction = junctions.get(id);
+		return junction == null ? 16.0 : junction.radius();
+	}
 }

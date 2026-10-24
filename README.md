@@ -10,6 +10,25 @@ This repository currently contains the first Phase 1 foundation:
 - Whole-network validation and safe reload that retains the last valid in-memory network.
 - Atomic creation of individual JSON files without accidental overwrite.
 - Operator-only `/rgps station add <id>`, `/rgps node add <id>`, `/rgps network list`, and `/rgps reload` commands.
+- Server-side minecart route recording bound to one administrator and one specific minecart.
+- Strict recording cancellation on dismount, cart swap/destruction, death, disconnect, or dimension change.
+- Rail-block sampling, travelled-distance measurement, and conservative straight-line geometry simplification.
+- Dijkstra shortest-path planning with directed, bidirectional, and parallel route support.
+
+Recording commands:
+
+```mcfunction
+/rgps record start <from> <to> <route_id>
+/rgps record status
+/rgps record finish
+/rgps record cancel
+/rgps route list
+/rgps route info <route_id>
+/rgps route remove <route_id>
+/rgps route rename <old_id> <new_id>
+```
+
+Recording must start within the source node's radius and finish within the destination node's radius. Stations currently use a 16-block radius; junctions use their configured `radius`. Finishing is always explicit. Recorded routes are directed by default.
 
 ## Requirements
 

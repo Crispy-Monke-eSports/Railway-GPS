@@ -69,6 +69,31 @@ public final class NetworkStorage {
 		writeNew(routesDirectory, route.id(), route);
 	}
 
+	public void removeRoute(String id) throws IOException {
+		validateId(id);
+		Path route = routesDirectory.resolve(id + ".json");
+		if (!Files.deleteIfExists(route)) {
+			throw new IOException("Route '" + id + "' does not exist");
+		}
+	}
+
+	public void renameRoute(Route existing, String newId) throws IOException {
+		validateId(newId);
+		Path oldPath = routesDirectory.resolve(existing.id() + ".json");
+		if (!Files.exists(oldPath)) {
+			throw new IOException("Route '" + existing.id() + "' does not exist");
+		}
+		Route renamed = new Route(newId, existing.name(), existing.from(), existing.to(), existing.dimension(),
+				existing.bidirectional(), existing.distance(), existing.points());
+		writeNew(routesDirectory, newId, renamed);
+		try {
+			Files.delete(oldPath);
+		} catch (IOException exception) {
+			Files.deleteIfExists(routesDirectory.resolve(newId + ".json"));
+			throw exception;
+		}
+	}
+
 	private void ensureDirectories() throws IOException {
 		Files.createDirectories(stationsDirectory);
 		Files.createDirectories(junctionsDirectory);
@@ -95,9 +120,7 @@ public final class NetworkStorage {
 	}
 
 	private void writeNew(Path directory, String id, Object value) throws IOException {
-		if (!NetworkValidator.isValidId(id)) {
-			throw new IllegalArgumentException("Invalid id '" + id + "'. Use lowercase letters, numbers, '_' or '-'.");
-		}
+		validateId(id);
 		ensureDirectories();
 		Path destination = directory.resolve(id + ".json");
 		if (Files.exists(destination)) {
@@ -112,6 +135,12 @@ public final class NetworkStorage {
 			moveAtomically(temporary, destination);
 		} finally {
 			Files.deleteIfExists(temporary);
+		}
+	}
+
+	private static void validateId(String id) {
+		if (!NetworkValidator.isValidId(id)) {
+			throw new IllegalArgumentException("Invalid id '" + id + "'. Use lowercase letters, numbers, '_' or '-'.");
 		}
 	}
 
