@@ -679,10 +679,14 @@ När ett objekt väljs ska det kunna:
 
 ### 12.4 Visuell inspelning och redigering
 
-Redigeringsläget öppnas med en konfigurerbar tangent (`B` som standard). Verktyget visar aktuella
-musåtgärder och vald geometri i en HUD, i samma anda som verktygspaletten i SimpleBlueprints. För
+Railway GPS öppnas med en konfigurerbar tangent (`R` som standard). Vanliga spelare får en sökbar
+destinationslista med stationer, terminaler, korsningar och dimensionsportar samt tydliga knappar för att
+starta eller stoppa navigeringen. Tekniska ID:n behöver inte användas.
+
+Behöriga administratörer får dessutom knappen **Adminverktyg**. Den öppnar redigeringsläget, som visar
+aktuella musåtgärder och vald geometri i en HUD, i samma anda som verktygspaletten i SimpleBlueprints. För
 kontrollzoner väljer vänsterklick första hörnet och högerklick andra hörnet; en tredimensionell kontur visas
-omedelbart. Servern kontrollerar fortfarande behörighet och äger den sparade modellen.
+omedelbart. `R` lämnar adminläget. Servern kontrollerar fortfarande behörighet och äger den sparade modellen.
 
 Under inspelning visas geometrin live. Inträde och utträde ur kontrollzoner markeras. Föreslagna delningar, portar och spårpar visas innan administratören bekräftar dem.
 

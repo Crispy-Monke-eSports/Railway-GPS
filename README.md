@@ -18,7 +18,8 @@ The mod currently provides:
   become the first route leg, including on parallel double track.
 - A minecart HUD with automatic straight/left/right/turn-back guidance and custom instructions.
 - Optional JourneyMap overlays for control zones, physical tracks, names and the active route.
-- A `B`-key in-world editor for click-selecting control-point bounding boxes with a live outline and action HUD.
+- A searchable player UI on `R` for choosing destinations, starting/stopping navigation and viewing status.
+- An operator-only admin button that opens the in-world bounding-box editor with a live outline and action HUD.
 
 There is one network implementation and one authoritative data file:
 
@@ -35,8 +36,8 @@ All editing commands require operator permissions.
 
 ### Control-point bounding boxes
 
-Press `B`, then left-click and right-click the two opposite block corners of the inclusive 3D zone. The
-selection is rendered in the world while editing. Then create the control point:
+Press `R` and choose **Admin tools**, then left-click and right-click the two opposite block corners of the
+inclusive 3D zone. The selection is rendered in the world while editing. Then create the control point:
 
 ```mcfunction
 /rgps zone first

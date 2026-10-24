@@ -1,12 +1,8 @@
 package se.railwaygps.client.editing;
 
-import com.mojang.blaze3d.platform.InputConstants;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keymapping.v1.KeyMappingHelper;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
-import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
@@ -20,9 +16,6 @@ import se.railwaygps.railway.model.ZoneBox;
 /** SimpleBlueprints-inspired in-world administration mode. */
 public final class RailwayEditor {
 	private static final Identifier HUD_ID = Identifier.fromNamespaceAndPath(RailwayGps.MOD_ID, "editor");
-	private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
-			Identifier.fromNamespaceAndPath(RailwayGps.MOD_ID, "editing"));
-	private static KeyMapping toggle;
 	private static boolean enabled;
 	private static BlockPos first;
 	private static BlockPos second;
@@ -30,11 +23,6 @@ public final class RailwayEditor {
 	private RailwayEditor() { }
 
 	public static void register() {
-		toggle = KeyMappingHelper.registerKeyMapping(new KeyMapping("key.railwaygps.editor",
-				InputConstants.Type.KEYBOARD, InputConstants.KEY_B, CATEGORY));
-		ClientTickEvents.END_CLIENT_TICK.register(client -> {
-			while (toggle.consumeClick()) setEnabled(!enabled);
-		});
 		AttackBlockCallback.EVENT.register((player, level, hand, position, direction) -> {
 			if (!enabled || !level.isClientSide()) return InteractionResult.PASS;
 			selectFirst(position);
@@ -50,6 +38,18 @@ public final class RailwayEditor {
 
 	public static void clear() {
 		setEnabled(false);
+	}
+
+	public static void open() {
+		setEnabled(true);
+	}
+
+	public static void close() {
+		setEnabled(false);
+	}
+
+	public static boolean enabled() {
+		return enabled;
 	}
 
 	private static void setEnabled(boolean value) {

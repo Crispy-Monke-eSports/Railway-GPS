@@ -11,6 +11,7 @@ import se.railwaygps.client.hud.NavigationHud;
 import se.railwaygps.client.editing.RailwayEditor;
 import se.railwaygps.client.inspector.RailwayWorldOverlay;
 import se.railwaygps.client.navigation.ClientNavigator;
+import se.railwaygps.client.ui.RailwayGpsUi;
 import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.network.NetworkSnapshotDigest;
 import se.railwaygps.network.RailwayNetworkPayload;
@@ -26,6 +27,7 @@ public final class RailwayGpsClient implements ClientModInitializer {
 		NavigationHud.register();
 		RailwayWorldOverlay.register();
 		RailwayEditor.register();
+		RailwayGpsUi.register();
 		ClientTickEvents.END_CLIENT_TICK.register(ClientNavigator::tick);
 		ClientPlayNetworking.registerGlobalReceiver(RailwayNetworkPayload.TYPE, (payload, context) -> {
 			try {
