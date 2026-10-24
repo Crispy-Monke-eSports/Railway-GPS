@@ -6,7 +6,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import se.railwaygps.RailwayGps;
 import se.railwaygps.client.command.NavigationCommands;
+import se.railwaygps.client.command.InspectorCommands;
 import se.railwaygps.client.hud.NavigationHud;
+import se.railwaygps.client.inspector.RailwayWorldOverlay;
 import se.railwaygps.client.navigation.ClientNavigator;
 import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.network.NetworkSnapshotDigest;
@@ -19,7 +21,9 @@ public final class RailwayGpsClient implements ClientModInitializer {
 	@Override
 	public void onInitializeClient() {
 		NavigationCommands.register();
+		InspectorCommands.register();
 		NavigationHud.register();
+		RailwayWorldOverlay.register();
 		ClientTickEvents.END_CLIENT_TICK.register(ClientNavigator::tick);
 		ClientPlayNetworking.registerGlobalReceiver(RailwayNetworkPayload.TYPE, (payload, context) -> {
 			try {

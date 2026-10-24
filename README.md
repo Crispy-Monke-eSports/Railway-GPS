@@ -111,6 +111,22 @@ Start near or inside a registered control-point zone:
 The planner follows track direction and only uses enabled explicit transitions. JourneyMap highlights the
 remaining physical tracks in the active plan.
 
+## Client inspector
+
+The built-in inspector works without JourneyMap. It draws nearby control-point bounding boxes and physical
+track geometry directly in the world; the active route is emphasized. Rendering is limited to 256 blocks
+from the camera.
+
+```mcfunction
+/rgpsinspect toggle
+/rgpsinspect status
+/rgpsinspect list controls
+/rgpsinspect list tracks
+/rgpsinspect list labels
+```
+
+JourneyMap remains optional and provides the corresponding overview on its minimap and fullscreen map.
+
 ## Requirements
 
 - Java 25 or newer
