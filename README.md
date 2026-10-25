@@ -62,13 +62,18 @@ control points, and finish inside the final zone:
 
 Railway GPS detects the visited control points, splits the journey into physical tracks, assigns opaque
 track IDs, and registers the exact transitions observed during the journey. Record each usable direction
-separately. Rails between the same two control points automatically share a section. When there is exactly
-one unpaired rail in the opposite direction it is paired automatically. Ambiguous cases can be resolved
-explicitly:
+separately. Rails between the same two control points automatically share a section but are never silently
+paired. Railway GPS proposes pairs only when their recorded 3D geometry, spacing and alignment are
+compatible. An administrator reviews the two highlighted rails under **Admin tools → Parallel-track
+proposals** and explicitly approves or rejects each proposal. Commands remain an optional fallback:
 
 ```mcfunction
 /rgps track pair <first_track> <opposite_track>
 ```
+
+Approving reverse travel on the same physical rail is a separate admin action under **Verify travel on
+existing track geometry**. It adds the independently verified direction to that track without cloning its
+geometry or creating a parallel-track pair.
 
 ### Permitted transitions and instructions
 

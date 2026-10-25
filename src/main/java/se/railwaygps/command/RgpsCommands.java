@@ -64,7 +64,15 @@ public final class RgpsCommands {
 		root.then(Commands.literal("track").then(Commands.literal("pair")
 				.then(Commands.argument("first", StringArgumentType.word())
 						.then(Commands.argument("second", StringArgumentType.word())
-								.executes(RgpsCommands::pairTracks)))));
+								.executes(RgpsCommands::pairTracks))))
+				.then(Commands.literal("reject-pair")
+						.then(Commands.argument("first", StringArgumentType.word())
+								.then(Commands.argument("second", StringArgumentType.word())
+										.executes(RgpsCommands::rejectTrackPairing))))
+				.then(Commands.literal("allow-direction")
+						.then(Commands.argument("track", StringArgumentType.word())
+								.then(Commands.argument("direction", StringArgumentType.word())
+										.executes(RgpsCommands::allowTrackDirection)))));
 		root.then(Commands.literal("transition").then(Commands.literal("add")
 				.then(Commands.argument("id", StringArgumentType.word())
 						.then(Commands.argument("control", StringArgumentType.word())
@@ -234,6 +242,36 @@ public final class RgpsCommands {
 			return Command.SINGLE_SUCCESS;
 		} catch (IOException | NetworkValidationException | IllegalArgumentException exception) {
 			return fail(source, "Could not pair tracks: " + exception.getMessage());
+		}
+	}
+
+	private static int rejectTrackPairing(CommandContext<CommandSourceStack> context) {
+		CommandSourceStack source = context.getSource();
+		String first = StringArgumentType.getString(context, "first");
+		String second = StringArgumentType.getString(context, "second");
+		try {
+			RailwayGpsServer state = RailwayGpsServer.get(source.getServer());
+			state.save(RailwayNetworkEditor.rejectTrackPairing(state.network(), first, second));
+			source.sendSuccess(() -> Component.literal("Rejected parallel-track proposal '" + first
+					+ "' and '" + second + "'"), true);
+			return Command.SINGLE_SUCCESS;
+		} catch (IOException | NetworkValidationException | IllegalArgumentException exception) {
+			return fail(source, "Could not reject track pairing: " + exception.getMessage());
+		}
+	}
+
+	private static int allowTrackDirection(CommandContext<CommandSourceStack> context) {
+		CommandSourceStack source = context.getSource();
+		String track = StringArgumentType.getString(context, "track");
+		try {
+			TrackDirection direction = parseDirection(context, "direction");
+			RailwayGpsServer state = RailwayGpsServer.get(source.getServer());
+			state.save(RailwayNetworkEditor.allowTrackDirection(state.network(), track, direction));
+			source.sendSuccess(() -> Component.literal("Verified " + direction.name().toLowerCase(Locale.ROOT)
+					+ " travel on physical track '" + track + "'"), true);
+			return Command.SINGLE_SUCCESS;
+		} catch (IOException | NetworkValidationException | IllegalArgumentException exception) {
+			return fail(source, "Could not verify track direction: " + exception.getMessage());
 		}
 	}
 

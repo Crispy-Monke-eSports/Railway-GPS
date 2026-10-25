@@ -26,6 +26,8 @@ public final class RailwayWorldOverlay {
 	private static final int ACTIVE_COLOR = 0xFF35B9F3;
 	private static boolean enabled;
 	private static ZoneBox selectionPreview;
+	private static String highlightedFirstTrack;
+	private static String highlightedSecondTrack;
 
 	private RailwayWorldOverlay() { }
 
@@ -44,6 +46,11 @@ public final class RailwayWorldOverlay {
 
 	public static void setSelectionPreview(ZoneBox preview) {
 		selectionPreview = preview;
+	}
+
+	public static void setHighlightedTrackPair(String firstTrackId, String secondTrackId) {
+		highlightedFirstTrack = firstTrackId;
+		highlightedSecondTrack = secondTrackId;
 	}
 
 	private static void render(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context) {
@@ -66,13 +73,16 @@ public final class RailwayWorldOverlay {
 		ClientNavigator.activePlan().ifPresent(plan -> plan.legs().forEach(leg -> activeTracks.add(leg.track().id())));
 		for (PhysicalTrack track : ClientRailwayNetwork.network().tracks().values()) {
 			if (!track.dimension().equals(dimension) || track.points().stream().noneMatch(point -> near(camera, point))) continue;
-			int color = activeTracks.contains(track.id()) ? ACTIVE_COLOR : labelColor(track.id());
+			boolean highlighted = track.id().equals(highlightedFirstTrack) || track.id().equals(highlightedSecondTrack);
+			int color = track.id().equals(highlightedFirstTrack) ? 0xFFFF5DA2
+					: track.id().equals(highlightedSecondTrack) ? 0xFFFFB347
+					: activeTracks.contains(track.id()) ? ACTIVE_COLOR : labelColor(track.id());
 			for (int index = 1; index < track.points().size(); index++) {
 				TrackPoint first = track.points().get(index - 1);
 				TrackPoint second = track.points().get(index);
 				lines.add(new Line(first.x() + 0.5, first.y() + 0.2, first.z() + 0.5,
 						second.x() + 0.5, second.y() + 0.2, second.z() + 0.5, color,
-						activeTracks.contains(track.id()) ? 3f : 2f));
+						highlighted ? 4f : activeTracks.contains(track.id()) ? 3f : 2f));
 			}
 		}
 		if (lines.isEmpty()) return;

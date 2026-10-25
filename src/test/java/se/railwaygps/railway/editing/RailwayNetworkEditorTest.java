@@ -26,14 +26,14 @@ class RailwayNetworkEditorTest {
 	}
 
 	@Test
-	void automaticallyPairsAnUnambiguousOppositeTrack() throws Exception {
+	void leavesAnUnambiguousOppositeTrackUnpairedUntilAdminApproval() throws Exception {
 		RailwayNetworkEditor.AddedTrack eastbound = RailwayNetworkEditor.addRecordedTrack(withControlPoints(),
 				"west", "east", "minecraft:overworld", List.of(point(2, 64, 0), point(8, 64, 0)));
 		RailwayNetworkEditor.AddedTrack westbound = RailwayNetworkEditor.addRecordedTrack(eastbound.network(),
 				"east", "west", "minecraft:overworld", List.of(point(8, 64, 2), point(2, 64, 2)));
 
-		assertEquals(westbound.trackId(), westbound.network().tracks().get(eastbound.trackId()).pairedTrackId());
-		assertEquals(eastbound.trackId(), westbound.network().tracks().get(westbound.trackId()).pairedTrackId());
+		assertEquals(null, westbound.network().tracks().get(eastbound.trackId()).pairedTrackId());
+		assertEquals(null, westbound.network().tracks().get(westbound.trackId()).pairedTrackId());
 	}
 
 	@Test
@@ -69,6 +69,18 @@ class RailwayNetworkEditorTest {
 		assertThrows(Exception.class, () -> RailwayNetworkEditor.addTransition(finalNetwork, "wrong", "west",
 				new TraversalRef("into_center", TrackDirection.FORWARD),
 				new TraversalRef("out_of_center", TrackDirection.FORWARD), null));
+	}
+
+	@Test
+	void verifiesReverseTravelOnTheSameGeometryWithoutCreatingOrPairingTracks() throws Exception {
+		RailwayNetwork network = RailwayNetworkEditor.addRecordedTrack(withControlPoints(), "single",
+				"west", "east", "minecraft:overworld", List.of(point(2, 64, 0), point(8, 64, 0)));
+		RailwayNetwork updated = RailwayNetworkEditor.allowTrackDirection(network, "single", TrackDirection.REVERSE);
+
+		assertEquals(1, updated.tracks().size());
+		assertEquals(java.util.Set.of(TrackDirection.FORWARD, TrackDirection.REVERSE),
+				updated.tracks().get("single").directions());
+		assertEquals(null, updated.tracks().get("single").pairedTrackId());
 	}
 
 	private static RailwayNetwork withControlPoints() throws Exception {

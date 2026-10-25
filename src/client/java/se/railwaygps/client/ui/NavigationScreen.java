@@ -6,7 +6,6 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import se.railwaygps.client.ClientRailwayNetwork;
-import se.railwaygps.client.editing.RailwayEditor;
 import se.railwaygps.client.navigation.ClientNavigator;
 import se.railwaygps.client.navigation.NavigationSnapshot;
 import se.railwaygps.railway.model.ControlPoint;
@@ -82,8 +81,7 @@ public final class NavigationScreen extends Screen {
 
 		if (administrator) {
 			addRenderableWidget(Button.builder(Component.translatable("railwaygps.ui.admin"), button -> {
-				minecraft.gui.setScreen(null);
-				RailwayEditor.open();
+				minecraft.gui.setScreen(new AdminScreen());
 			}).bounds(buttonX, bottom, buttonWidth, 20).build());
 			buttonX += buttonWidth + gap;
 		}

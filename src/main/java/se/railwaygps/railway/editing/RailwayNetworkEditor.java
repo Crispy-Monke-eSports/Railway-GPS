@@ -80,11 +80,6 @@ public final class RailwayNetworkEditor {
 			List<TrackPoint> rawPoints) throws NetworkValidationException {
 		String trackId = newTrackId(network);
 		RailwayNetwork updated = addRecordedTrack(network, trackId, fromId, toId, dimension, rawPoints);
-		List<PhysicalTrack> opposite = updated.tracks().values().stream()
-				.filter(track -> !track.id().equals(trackId) && track.pairedTrackId() == null)
-				.filter(track -> track.fromControlPoint().equals(toId) && track.toControlPoint().equals(fromId))
-				.toList();
-		if (opposite.size() == 1) updated = pairTracks(updated, trackId, opposite.getFirst().id());
 		return new AddedTrack(updated, trackId);
 	}
 
@@ -105,9 +100,39 @@ public final class RailwayNetworkEditor {
 		if (first.pairedTrackId() != null || second.pairedTrackId() != null) {
 			throw new IllegalArgumentException("One of the tracks is already paired");
 		}
+		if (TrackPairingAnalyzer.analyze(first, second).isEmpty()) {
+			throw new IllegalArgumentException("Tracks are not a compatible geometric parallel pair");
+		}
 		Map<String, PhysicalTrack> tracks = new LinkedHashMap<>(network.tracks());
 		tracks.put(firstId, withPair(first, secondId));
 		tracks.put(secondId, withPair(second, firstId));
+		Set<String> rejections = new LinkedHashSet<>(network.rejectedTrackPairings());
+		rejections.remove(TrackPairingAnalyzer.pairKey(firstId, secondId));
+		return validated(copy(network, network.controlPoints(), network.sections(), tracks, network.transitions(), rejections));
+	}
+
+	public static RailwayNetwork rejectTrackPairing(RailwayNetwork network, String firstId, String secondId)
+			throws NetworkValidationException {
+		PhysicalTrack first = requireTrack(network, firstId);
+		PhysicalTrack second = requireTrack(network, secondId);
+		if (TrackPairingAnalyzer.analyze(first, second).isEmpty()) {
+			throw new IllegalArgumentException("Tracks are not a current geometric pairing proposal");
+		}
+		Set<String> rejections = new LinkedHashSet<>(network.rejectedTrackPairings());
+		rejections.add(TrackPairingAnalyzer.pairKey(firstId, secondId));
+		return validated(copy(network, network.controlPoints(), network.sections(), network.tracks(),
+				network.transitions(), rejections));
+	}
+
+	public static RailwayNetwork allowTrackDirection(
+			RailwayNetwork network, String trackId, TrackDirection direction) throws NetworkValidationException {
+		PhysicalTrack track = requireTrack(network, trackId);
+		Set<TrackDirection> directions = new LinkedHashSet<>(track.directions());
+		if (!directions.add(direction)) throw new IllegalArgumentException("Track direction is already verified");
+		Map<String, PhysicalTrack> tracks = new LinkedHashMap<>(network.tracks());
+		tracks.put(trackId, new PhysicalTrack(track.id(), track.sectionId(), track.fromControlPoint(),
+				track.toControlPoint(), track.dimension(), track.points(), track.length(), directions,
+				track.pairedTrackId(), track.status()));
 		return validated(copy(network, network.controlPoints(), network.sections(), tracks, network.transitions()));
 	}
 
@@ -125,7 +150,14 @@ public final class RailwayNetworkEditor {
 	private static RailwayNetwork copy(RailwayNetwork network, Map<String, ControlPoint> controlPoints,
 			Map<String, TrackSection> sections, Map<String, PhysicalTrack> tracks,
 			Map<String, TrackTransition> transitions) {
-		return new RailwayNetwork(network.revision() + 1, controlPoints, sections, tracks, transitions, network.labels());
+		return copy(network, controlPoints, sections, tracks, transitions, network.rejectedTrackPairings());
+	}
+
+	private static RailwayNetwork copy(RailwayNetwork network, Map<String, ControlPoint> controlPoints,
+			Map<String, TrackSection> sections, Map<String, PhysicalTrack> tracks,
+			Map<String, TrackTransition> transitions, Set<String> rejectedTrackPairings) {
+		return new RailwayNetwork(network.revision() + 1, controlPoints, sections, tracks, transitions,
+				network.labels(), rejectedTrackPairings);
 	}
 
 	private static RailwayNetwork validated(RailwayNetwork network) throws NetworkValidationException {

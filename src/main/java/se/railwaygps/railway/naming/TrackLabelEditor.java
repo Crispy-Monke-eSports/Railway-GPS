@@ -55,7 +55,8 @@ public final class TrackLabelEditor {
 		Map<String, TrackLabel> labels = new LinkedHashMap<>(network.labels());
 		labels.put(id, new TrackLabel(id, name.trim(), type, priority, color, ranges));
 		RailwayNetwork updated = new RailwayNetwork(network.revision() + 1,
-				network.controlPoints(), network.sections(), network.tracks(), network.transitions(), labels);
+				network.controlPoints(), network.sections(), network.tracks(), network.transitions(), labels,
+				network.rejectedTrackPairings());
 		RailwayNetworkValidator.validate(updated);
 		return updated;
 	}

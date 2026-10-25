@@ -36,6 +36,12 @@ public final class RailwayNetworkValidator {
 		network.tracks().forEach((id, track) -> validateTrack(network, id, track, errors));
 		network.transitions().forEach((id, transition) -> validateTransition(network, id, transition, errors));
 		network.labels().forEach((id, label) -> validateLabel(network, id, label, errors));
+		for (String rejection : network.rejectedTrackPairings()) {
+			String[] ids = rejection.split("\\|", -1);
+			if (ids.length != 2 || !network.tracks().containsKey(ids[0]) || !network.tracks().containsKey(ids[1])) {
+				errors.add("Rejected track pairing '" + rejection + "' refers to missing tracks");
+			}
+		}
 		if (!errors.isEmpty()) {
 			throw new NetworkValidationException(errors);
 		}
