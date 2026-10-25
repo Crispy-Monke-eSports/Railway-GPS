@@ -21,7 +21,9 @@ Den här specifikationen beskriver den önskade lösningen utan krav på bakåtk
 - **Destination före ombordstigning:** spelaren får välja en station i förväg. Valet väntar tills spelaren sitter i en minecart på säkert identifierad registrerad räls; **först då startar navigeringen och ruttberäkningen**. Inga väganvisningar till fots.
 - **Avstigning:** **all** avstigning avslutar en aktiv navigation omedelbart, även **före** ankomst; automatisk återupptagning ska inte ske.
 - **Rödljusinstruktionens tidpunkt:** visa vägvalet när ett rödljus **börjar närma sig**, behåll instruktionen under passagen genom dess zon och avsluta/byta den när rätt utgående räls har bekräftats; vid osäker position gäller alltid regeln om att dölja instruktioner.
-- **Ruttval:** välj automatiskt den **kortaste verifierade, giltiga rutten** utifrån återstående fysisk rälssträcka, med respekt för riktning och tillåtna rödljusövergångar. Namngivna leder prioriteras inte och spelaren behöver inte välja mellan alternativa rutter.
+- **Ruttval:** välj automatiskt den **kortaste verifierade, giltiga rutten** utifrån återstående fysisk rälssträcka, med respekt för riktning och tillåtna rödljusövergångar. **Ingen riktning på ett fysiskt spår antas vara körbar utan inspelad eller uttryckligen administratörsgodkänd verifiering**, även om samma räls går att färdas på åt andra hållet i Minecraft. Namngivna leder prioriteras inte och spelaren behöver inte välja mellan alternativa rutter.
+- **Nätverksändring under resa:** beräkna automatiskt om den **kortaste återstående giltiga vägen** när den aktiva nätverksrevisionen eller en spår-/övergångsstatus ändras. **Om ingen giltig väg till stationen finns, visa ett tydligt felmeddelande**; fortsätt inte att visa en ogiltig rutt eller felaktiga svänginstruktioner.
+- **Namngivning:** behörig användare **markerar sträckans början och slut på befintlig inspelad räls och anger ett namn**. Förhandsvisa exakt träffad räls/sträcka och begär val om flera olika sträckor är möjliga. **Ingen särskild kör-/minecart-inspelning för namngivning** ska implementeras; fysisk survey för att registrera räls är en annan funktion.
 
 ## 1. Vision
 
@@ -188,15 +190,15 @@ Varje fysiskt spår innehåller:
 Följande måste stödjas:
 
 - **Tvåspårigt:** separat geometri för vardera riktningen.
-- **Enkelspårigt dubbelriktat:** samma geometri kan traverseras i båda riktningarna.
+- **Enkelspårigt dubbelriktat:** samma geometri kan traverseras i båda riktningarna **först när vardera tillåten färdriktning är dokumenterad genom inspelning eller uttryckligen godkänd av en administratör**. En enda inspelad resa verifierar bara den faktiskt observerade riktningen.
 - **Enkelriktat:** endast en passage är tillåten.
 - **Fler än två spår:** exempelvis extra eller parallella fysiska rälslinjer, utan krav på plattformar.
 
-Två parallella spår ska inte representeras genom att samma linje vänds baklänges om de i världen ligger på olika räls.
+Två parallella spår ska inte representeras genom att samma linje vänds baklänges om de i världen ligger på olika räls. **Det ska aldrig härledas att motriktad passage är tillåten enbart ur ett spårs geometri, två ändpunkter eller tillgången till en framåtriktad passage.** En motriktad inspelning kan verifiera motsatt passage på **samma fysiska räls** utan att duplicera geometrin. Administratören får också explicit verifiera den motsatta riktningen, med serverkontroll och loggad åtgärd. Detta är **inte** samma sak som att para ihop två separat liggande parallella rälslinjer, vilket fortfarande kräver särskilt administratörsgodkännande.
 
 ### 5.5 Passager och övergångar
 
-En passage är ett fysiskt spår plus en riktning. Ruttgrafen arbetar med passager, inte bara med sektioner.
+En passage är ett fysiskt spår plus en riktning. Ruttgrafen arbetar med passager, inte bara med sektioner. **En passage får ingå i ruttgrafen endast om just dess färdriktning är verifierad genom inspelning eller uttryckligt administratörsgodkännande.** Samma fysiska spår kan användas åt båda hållen, men det räcker aldrig att motsatt riktning *teoretiskt* verkar möjlig. Motsatt riktning är en separat verifiering och får inte automatiskt aktiveras av att framriktningen registrerats.
 
 En övergång beskriver ett verifierat vägval:
 
@@ -381,13 +383,13 @@ Vid inspelning registreras **fysisk räls utanför rödljusens zoner**. Inspelni
 
 ### 7.5 Tvåspåriga sträckor
 
-Vardera fysiska rälsen spelas in separat. Moddet **föreslår par utifrån fysisk närhet, riktning och geometrisk överensstämmelse**; det räcker inte att spåren har omvända kontrollpunkter. Förslaget visar vilka två spår det gäller och osäkerhet. **Ingen parning sker automatiskt**, inte ens med en enda kandidat. En person med administrations-/publiceringsrätt måste godkänna paret uttryckligen. Oparade, giltiga spår fungerar i nätet.
+Vardera fysiska rälsen spelas in separat. **Godkännande av motsatt färdriktning på en och samma räls är inte parning av två skilda spår.** Moddet **föreslår par utifrån fysisk närhet, riktning och geometrisk överensstämmelse**; det räcker inte att spåren har omvända kontrollpunkter. Förslaget visar vilka två spår det gäller och osäkerhet. **Ingen parning sker automatiskt**, inte ens med en enda kandidat. En person med administrations-/publiceringsrätt måste godkänna paret uttryckligen. Oparade, giltiga spår fungerar i nätet.
 
 Parningen påverkar presentation och administration. Ruttberäkningen fortsätter att använda respektive riktad passage.
 
 ### 7.6 Namnge en känd sträcka mellan två punkter
 
-När de fysiska spåren redan är registrerade ska en behörig person kunna namnge en sträcka utan att åka den igen.
+**Detta är det enda normala arbetsflödet för namngivning:** en användare med namngivningsbehörighet markerar **sträckans början och slut på redan registrerad räls**, anger ett namn och bekräftar den visuella förhandsvisningen. Ingen separat minecart-färd eller namninspelningsfunktion krävs. Om den fysiska rälsen ännu inte är registrerad måste den först registreras med den separata vanliga survey-funktionen.
 
 Arbetsflödet är:
 
@@ -410,43 +412,17 @@ Illustrativt flöde:
 /rgps label confirm
 ```
 
-Om endast en sammanhängande väg finns mellan punkterna kan den väljas automatiskt för förhandsvisning. Om flera vägar är möjliga måste moddet visa alternativen och kräva ett val. Personen ska också kunna lägga till en eller flera mellanpunkter för att styra sträckan genom rätt gren:
+Om endast en sammanhängande väg finns mellan punkterna kan den väljas automatiskt för **förhandsvisning**. Om flera vägar är möjliga måste moddet visa alternativen och kräva ett val; ett valfritt mellanpunktverktyg kan hjälpa till att skilja dem åt utan att skapa nya objekt. Namnet publiceras först efter att den avsedda rälssträckan förhandsvisats och bekräftats. En namngivning får aldrig tyst välja en godtycklig gren eller en närliggande parallell räls.
 
-```mcfunction
-/rgps label add-via
-```
-
-En namngivning får aldrig tyst välja en godtycklig gren. Punkten ska inte heller fästas på ett närliggande parallellt spår utan att den visuella förhandsvisningen visar exakt vad som valts.
-
-Att köra sträckan med minecart finns kvar som ett alternativ när nätet ännu inte är registrerat, när en komplex väg är enklare att demonstrera genom körning eller när personen uttryckligen föredrar det.
+**Skapa ingen separat funktion för att spela in en namngiven färd med minecart.** En inspelning används bara för att kartlägga fysisk räls; namn läggs därefter på med startpunkt, slutpunkt och namn.
 
 ### 7.7 Namnge Riksettan
 
-När Riksettans fysiska spår redan finns markerar personen start och slut, granskar den beräknade vägen och inkluderar vid behov de parade spåren. Namnet kan på detta sätt omfatta många sektioner och kontrollpunkter utan en ny minecart-färd.
-
-En längre led kan namnges genom att köra längs redan registrerade spår:
-
-```mcfunction
-/rgps label record start way riksettan Riksettan
-/rgps label record finish
-```
-
-Moddet matchar färden mot de fysiska spåren och lägger namnet över alla berörda intervall. Motsvarande parallella spår kan inkluderas efter förhandsvisning och bekräftelse.
-
-Riksettan kan i båda fallen fortsätta genom valfritt antal rödljus eftersom namnet inte är en grafkant.
+En behörig användare markerar **början och slutet på den registrerade rälssträckan**, anger `Riksettan`, granskar den föreslagna sammanhängande vägen och bekräftar. Om två valbara förgreningar finns väljer användaren den korrekta utpekade vägen. En längre led kan därmed fortsätta genom flera rödljus utan att spela in någon separat namnresa. Eventuella separata, redan administratörsgodkända parallella spår kan väljas i förhandsvisningen, men inkluderas aldrig tyst.
 
 ### 7.8 Namnge Centralbron
 
-Om spåren redan är registrerade markerar personen de två visuella gränserna, exempelvis stockarna på vardera sidan. Moddet väljer intervallet mellan de projicerade punkterna och kan efter bekräftelse lägga samma namn på det parade motriktade spåret.
-
-Som alternativ kan personen starta en namninspelning vid den ena gränsen och avsluta vid den andra:
-
-```mcfunction
-/rgps label record start bridge centralbron Centralbron
-/rgps label record finish
-```
-
-Resultatet är spårintervall som motsvarar exakt den markerade delen. Inga falska korsningsnoder behövs.
+Användaren markerar **början och slutet** på den redan registrerade rälsen, exempelvis två markeringar vid brons ändar, anger `Centralbron` och bekräftar den exakta visuella sträckan. Vid behov kan samma namn läggas på ett separat redan verifierat/administratörsgodkänt parallellt spår efter uttryckligt val. Ingen namninspelning genom körning och inga falska korsningsnoder behövs.
 
 ### 7.9 Anpassade instruktioner
 
@@ -704,7 +680,7 @@ Krav:
 
 - Paket ska storleksbegränsas och vid behov delas upp.
 - Klienten aktiverar inte en ofullständig revision.
-- Borttagna eller ändrade passager orsakar omplanering av aktiv resa.
+- När en ny giltig nätverksrevision ändrar, inaktiverar eller tar bort spår eller rödljusövergångar ska en pågående resa **automatiskt beräkna om den kortaste giltiga återstående vägen** från bekräftad aktuell räls/riktning. Om ingen rutt finns, **visa ett tydligt 'Ingen giltig väg till stationen'-fel** och upphör att visa tidigare ogiltiga körinstruktioner. Vid osäker position visa `Osäker position` utan gissad rutt. **Ingen manuell omstart krävs om en alternativ giltig väg finns.** Ankomstläge `Framme` förblir kvar tills avstigning.
 - Administrationsmetadata skickas endast till behöriga klienter när den inte behövs för vanlig navigering.
 - Servern förblir auktoritativ även om klienten visar eller föreslår redigeringar.
 
@@ -806,7 +782,7 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 
 ### Fas 5 – Flerspårighet och övergångar
 
-- Inspelning av separata riktningar.
+- **Verifiera varje färdriktning separat:** en inspelning bekräftar observerad riktning, medan motsatt riktning kräver egen inspelning eller uttryckligt administratörsgodkännande. Samma geometrilinje återanvänds på verkligt dubbelriktade enkelspår.
 - **Geometribaserade förslag på parallella spårpar och obligatoriskt uttryckligt administratörsgodkännande**; inga automatiska parningar.
 - Tillåtna/otillåtna korsningsövergångar.
 - Kontrollinstruktioner för knappar och specialbyggen.
@@ -818,7 +794,7 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 - Flera samtidiga namn på samma spår.
 - Punkt-till-punkt-namngivning över redan registrerade spår.
 - Kandidatval, mellanpunkter och inkludering av parade spår.
-- Namninspelning och visuell intervallredigering som alternativ.
+- **Enbart enkel punkt-till-punkt-namngivning:** markera start och slut på registrerad räls, ange namn, förhandsvisa och bekräfta; ingen separat namninspelning med minecart.
 
 ### Fas 7 – Navigation
 
@@ -826,7 +802,7 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 - Navigering får startas var som helst på en registrerad fysisk räls. Vagnen matchas först mot exakt fysisk
   räls och tillåten färdriktning; en parallell grannräls får inte väljas bara för att den har en giltig rutt.
 - Stabil map matching mellan parallella spår.
-- Omplanering och osäkerhetsläge.
+- **Automatisk omplanering till kortaste giltiga väg** efter en nätverksrevision/spåravstängning; visa ett tydligt fel utan gamla instruktioner om ingen rutt finns. Hantera osäker rälsposition utan gissning.
 - Automatiska och manuella instruktioner.
 - Startinstruktionen beräknas från den fysiska inkommande och utgående rälsen **utanför rödljusets zon**. Spelarens kamerariktning får aldrig användas för att avgöra vänster eller höger; **saknas säker rälsmatchning döljs sväng-/knappinstruktionen och Osäker position visas**.
 - Lokaliserad HUD med **bokstavligt återgivna anpassade instruktioner**, **högst en huvudled plus ett lokalt namn**, och osäkerhetsstatus **utan sväng-/knappinstruktioner**.
@@ -875,6 +851,9 @@ En första komplett version av målarkitekturen ska demonstrera att:
 26. Rödljusets vägvals-/knappinstruktion börjar visas **under infarten när rödljuset närmar sig**, ligger kvar **inne i zonen** tills faktisk utgång bekräftas, och döljs vid osäker position.
 27. GPS:en väljer **utan extra fråga den kortaste verifierade rutten** utifrån kvarvarande fysisk rälslängd och tillåtna riktade övergångar; namngivna leder ger ingen förtur och rödljus ger ingen extrakostnad.
 28. **Alla stationsvisningsnamn är unika på hela servern**, oberoende av dimension och skillnad i stora/små bokstäver; försök att skapa, byta namn till eller importera ett duplikat avvisas.
+29. **Varje färdriktning på fysisk räls verifieras separat:** en inspelning åt ett håll ger inte automatiskt rätt att rutta åt andra hållet, men motsatt passage kan verifieras genom separat inspelning eller administratörsbeslut utan duplicerad geometri.
+30. **Ändrat/avstängt spår eller ny nätverksrevision** leder automatiskt till en ny **kortaste giltig rutt** om en finns. Finns ingen rutt visas ett tydligt fel utan fortsatt körvägledning på den ogiltiga rutten.
+31. **Namngivning sker enbart via markerad start och slut på registrerad räls plus ett namn**, med förhandsvisning och bekräftelse; någon separat namninspelning genom minecartkörning krävs inte.
 
 ## 20. Återstående detaljbeslut
 
@@ -889,7 +868,7 @@ Följande **tekniska detaljer**, som inte får ändra de fastställda produktbes
 7. Om ruttberäkningen primärt görs på servern, klienten eller hybridmässigt.
 8. Hur tillfälliga avstängningar och enkelriktning under drift exponeras för administratörer.
 9. Vilken databasimplementation och backupstrategi som bäst passar målservern.
-10. Hur kandidater mellan två markerade punkter rankas när flera likvärdiga vägar finns.
+10. Hur kandidater mellan två markerade punkter **för namngivning** rangordnas och visuellt väljs när flera likvärdiga spårsträckor finns. Namn kopplas aldrig automatiskt till en otydlig förgrening.
 11. Hur de **redan beslutade** separata serverbehörigheterna representeras som permission-noder och tilldelas användare.
 
 ## 21. Sammanfattning
