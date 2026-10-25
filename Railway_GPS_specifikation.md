@@ -24,6 +24,9 @@ Den här specifikationen beskriver den önskade lösningen utan krav på bakåtk
 - **Ruttval:** välj automatiskt den **kortaste verifierade, giltiga rutten** utifrån återstående fysisk rälssträcka, med respekt för riktning och tillåtna rödljusövergångar. **Ingen riktning på ett fysiskt spår antas vara körbar utan inspelad eller uttryckligen administratörsgodkänd verifiering**, även om samma räls går att färdas på åt andra hållet i Minecraft. Namngivna leder prioriteras inte och spelaren behöver inte välja mellan alternativa rutter.
 - **Nätverksändring under resa:** beräkna automatiskt om den **kortaste återstående giltiga vägen** när den aktiva nätverksrevisionen eller en spår-/övergångsstatus ändras. **Om ingen giltig väg till stationen finns, visa ett tydligt felmeddelande**; fortsätt inte att visa en ogiltig rutt eller felaktiga svänginstruktioner.
 - **Namngivning:** behörig användare **markerar sträckans början och slut på befintlig inspelad räls och anger ett namn**. Förhandsvisa exakt träffad räls/sträcka och begär val om flera olika sträckor är möjliga. **Ingen särskild kör-/minecart-inspelning för namngivning** ska implementeras; fysisk survey för att registrera räls är en annan funktion.
+- **Ankomstriktning:** en station kan nås **från båda håll** på sin anslutna fysiska räls **om respektive färdriktning redan är verifierad** genom inspelning eller administratörsgodkännande. Ingen särskild stationsankomstriktning ska behöva anges; motsatt färd godkänns aldrig automatiskt.
+- **HUD-avstånd:** under aktiv och säker navigering visas **både återstående avstånd till nästa rödljus och till destinationsstationen** i block, mätta längs planerad fysisk räls. Finns inget ytterligare rödljus visas ingen vilseledande siffra för det avståndet; vid osäker position döljs otillförlitliga avstånd.
+- **Världsrutt:** standardläget är **enbart navigations-HUD, utan 3D-ruttmarkering i Minecraft-världen**. Spelaren får själv slå på eller av visning av den planerade rälsrutten vid behov, utan JourneyMap. Den valfria rutten släcks när navigeringen avslutas.
 
 ## 1. Vision
 
@@ -147,9 +150,9 @@ Krav:
 
 En **station** är en namngiven punkt eller liten stoppzon **direkt på en fysisk räls**. Det kan vara ett spårslut eller ett genomgående spår där minecarten kan stanna och sedan fortsätta eller vända. Stationen kräver **inte** någon plattform, stationsbyggnad, flera spår eller ett stort stationsområde. **Ingen separat terminaltyp används:** ett spårslut är också en station.
 
-Varje station har bara det som behövs för navigation: **unikt visningsnamn**, tekniskt ID, dimension samt en stoppunkt/stoppzon kopplad till **rätt fysisk räls**. Position och rälsidentitet ska skilja den från en eventuell närliggande parallell räls. **Två stationer får inte ha samma visningsnamn någonstans på servern**, även om de ligger i olika dimensioner. Vid skapande, byte av namn, import och nätverksvalidering avvisas namnkonflikter utan att någon station döps om automatiskt. Namn jämförs efter trimning och utan skillnad på stora/små bokstäver (t.ex. `Central` och ` central ` räknas som samma namn).
+Varje station har bara det som behövs för navigation: **unikt visningsnamn**, tekniskt ID, dimension samt en stoppunkt/stoppzon kopplad till **rätt fysisk räls**. Position och rälsidentitet ska skilja den från en eventuell närliggande parallell räls. **Ingen ankomstriktning ska behöva väljas för stationen:** den är tillgänglig från **båda håll på spåret**, under förutsättning att den aktuella färdriktningen och hela rutten är **separat verifierade och tillåtna**. Ett enkelriktat registrerat spår blir inte dubbelriktat bara för att det finns en station på det. **Två stationer får inte ha samma visningsnamn någonstans på servern**, även om de ligger i olika dimensioner. Vid skapande, byte av namn, import och nätverksvalidering avvisas namnkonflikter utan att någon station döps om automatiskt. Namn jämförs efter trimning och utan skillnad på stora/små bokstäver (t.ex. `Central` och ` central ` räknas som samma namn).
 
-**Endast stationer är valbara destinationer.** Spelaren kan välja destination **innan ombordstigning**; valet är då väntande och ingen aktiv rutt eller svänginstruktion visas. När spelaren sitter i en minecart på säkerställd registrerad räls beräknas och startas resan automatiskt från den faktiska rälsen. Om rälsen/riktningen inte kan fastställas startar ingen gissad rutt. GPS:en markerar **Framme** så snart minecarten med säker färdhistorik når rätt station/stoppzon på rätt spår; ett fullständigt stopp eller låg hastighet krävs inte. När **Framme** väl har bekräftats ska texten ligga kvar även om vagnen fortsätter röra sig. **Vid all avstigning, även före ankomst, avslutas aktiv navigation omedelbart och navigations-HUD:en försvinner.** Ny resa kräver nytt destinationsval. En förbipassage på fel spår får inte utlösa ankomst.
+**Endast stationer är valbara destinationer.** GPS:en får beräkna ankomst till samma stationsstopp från **endera verifierade riktningen**, utan stationstyp, plattformsval eller separat ankomstriktningskonfiguration. Spelaren kan välja destination **innan ombordstigning**; valet är då väntande och ingen aktiv rutt eller svänginstruktion visas. När spelaren sitter i en minecart på säkerställd registrerad räls beräknas och startas resan automatiskt från den faktiska rälsen. Om rälsen/riktningen inte kan fastställas startar ingen gissad rutt. GPS:en markerar **Framme** så snart minecarten med säker färdhistorik når rätt station/stoppzon på rätt spår; ett fullständigt stopp eller låg hastighet krävs inte. När **Framme** väl har bekräftats ska texten ligga kvar även om vagnen fortsätter röra sig. **Vid all avstigning, även före ankomst, avslutas aktiv navigation omedelbart och navigations-HUD:en försvinner.** Ny resa kräver nytt destinationsval. En förbipassage på fel spår får inte utlösa ankomst.
 
 ### 5.3 Korsningar och rödljus
 
@@ -518,16 +521,16 @@ Om spelaren tar en annan verifierad övergång än den planerade räknas automat
 
 ## 11. Navigationsinstruktioner och HUD
 
-HUD:en ska prioritera handling framför tekniska detaljer:
+HUD:en ska prioritera handling framför tekniska detaljer. **Som standard visas endast HUD:en**, inte en linje över rälsen i Minecraft-världen. Vid aktiv, säkert matchad resa ska HUD:en visa **två separata avstånd**: (1) återstående körsträcka längs rutten till **nästa rödljus**, och (2) återstående körsträcka längs hela rutten till **destinationsstationen**, båda i block. Nästa rödljus avser bara rödljus **på den planerade återstående rutten**, inte närmaste rödljus fågelvägen. Om resan saknar ytterligare rödljus visas exempelvis ”Inget fler rödljus” i stället för en påhittad distans. Inne i rödljuszonen visas att spelaren är i rödljuset i stället för att beräkna en intern genomfartssträcka (som inte är modellerad). **Vid osäker position gäller tidigare säkerhetsbeslut**: visa destination och ”Osäker position” utan obekräftade avstånd eller sväng-/knappinstruktioner.
 
 ```text
 RAILWAY GPS · Central
 RIKSETTAN · Centralbron
 
 Välj knappen för Martyrön
-Nästa kontrollpunkt: Sigma · 28 block
+Nästa rödljus: Sigma · 28 block
 
-Återstående: 1 240 block
+Återstående till station: 1 240 block
 ```
 
 ### 11.1 Automatisk manöver
@@ -565,14 +568,16 @@ Den visuella nätverksinspektören är en kärnfunktion och ska fungera utan Jou
 
 ### 12.1 Visningslägen
 
-Ett tangentkommando växlar mellan:
+**Standard för vanliga spelare: endast navigations-HUD, ingen synlig 3D-rutt i världen.** Spelaren kan med en enkel inställning eller tangent **slå på/av endast den planerade aktiva rutten ovanför rälsen**, utan krav på JourneyMap. Den aktiva ruttlinjen ska följa **verklig inspelad extern räls**, aldrig hittad på geometri inne i rödljusens black boxes, och den ska uppdateras vid omplanering samt försvinna vid avstigning/avslutad navigering.
 
-- **Av:** endast aktiv navigering visas.
-- **Enkel:** stationer, namngivna objekt och aktiv resväg.
-- **Nätverk:** alla registrerade spår, kontrollpunkter och namn.
-- **Administration:** zoner, portar, riktningar, övergångar, utkast och valideringsfel.
+Den **separata, valfria nätverksinspektören** kan fortsätta ha lägen för att inspektera data utan att ändra spelarens standardläge:
 
-Administrationsläget kräver behörighet.
+- **Av (standard):** endast navigations-HUD.
+- **Aktiv rutt:** frivillig 3D-markering av **endast den planerade rutten** ovanför rälsen.
+- **Nätverk:** inspektera spår, stationer, rödljus och namn enligt läsbehörighet.
+- **Administration:** zoner, portar, riktningar, övergångar och valideringsfel för behöriga administratörer.
+
+Inspektions-/administrationsverktyg kräver respektive redan beslutade serverbehörighet; spelaren ska inte behöva slå på hela nätverksoverlayen för att se sin egen rutt.
 
 ### 12.2 Världsrendering
 
@@ -633,7 +638,7 @@ När ett objekt väljs ska det kunna:
 
 ### 12.4 Visuell inspelning och redigering
 
-Railway GPS öppnas med en konfigurerbar tangent (`R` som standard). Vanliga spelare får en sökbar
+Railway GPS öppnas med en konfigurerbar tangent (`R` som standard). Vanliga spelare får en lättåtkomlig inställning för **visa/dölj planerad 3D-rutt**, med **av** som standard och HUD kvar i båda fallen. De får en sökbar
 destinationslista med **enbart stationer** (spårslut ingår som stationer; rödljus är aldrig destinationer) samt tydliga knappar för att
 välja destination eller avsluta aktiv/väntande navigation. Tekniska ID:n behöver inte användas. **Destinationsval till fots sparas som väntande val; aktiv vägledning startar automatiskt först i en minecart på säkert matchad registrerad räls.** Vid all avstigning avbryts aktiv navigation, utan automatisk återupptagning.
 
@@ -650,7 +655,7 @@ En behörig redaktör ska kunna se vad servern tolkat utan att läsa databas- el
 
 ## 13. JourneyMap-integration
 
-JourneyMap är valfri och använder samma presentationsmodell som den inbyggda inspektören.
+JourneyMap är valfri och använder samma presentationsmodell som den inbyggda inspektören. **Varken JourneyMap eller den inbyggda 3D-världsrutten aktiveras av sig själv när vanlig navigation startar**: bara HUD visas som standard, och spelarens val att visa den inbyggda rutten styr den separat. JourneyMap får fortsätta visa valda kartlager om spelaren uttryckligen använder dem.
 
 Önskade funktioner:
 
@@ -761,7 +766,7 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 ### Fas 2 – Synkronisering och grundvisualisering
 
 - Server–klient-snapshot med version/hash.
-- Inbyggd rendering av zoner, spår och riktningar.
+- Inbyggd valfri rendering av zoner, spår och riktningar, **avstängd som standard för vanliga spelare**; HUD visas fortfarande under navigering.
 - Visningslägen och behörighetsstyrd administratörsvy.
 - Grundläggande nätverksutforskare.
 
@@ -805,12 +810,13 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 - **Automatisk omplanering till kortaste giltiga väg** efter en nätverksrevision/spåravstängning; visa ett tydligt fel utan gamla instruktioner om ingen rutt finns. Hantera osäker rälsposition utan gissning.
 - Automatiska och manuella instruktioner.
 - Startinstruktionen beräknas från den fysiska inkommande och utgående rälsen **utanför rödljusets zon**. Spelarens kamerariktning får aldrig användas för att avgöra vänster eller höger; **saknas säker rälsmatchning döljs sväng-/knappinstruktionen och Osäker position visas**.
-- Lokaliserad HUD med **bokstavligt återgivna anpassade instruktioner**, **högst en huvudled plus ett lokalt namn**, och osäkerhetsstatus **utan sväng-/knappinstruktioner**.
+- Lokaliserad HUD med **både avstånd till nästa rödljus och återstående avstånd till stationen längs planerad räls**, **bokstavligt återgivna anpassade instruktioner**, **högst en huvudled plus ett lokalt namn**, och osäkerhetsstatus **utan obekräftade avstånd eller sväng-/knappinstruktioner**.
+- **Vanlig navigering visar endast HUD som standard**. Spelaren kan separat **slå på/av den planerade rutten som en 3D-linje över verklig yttre räls**, utan JourneyMap.
 - **Sökning och destinationsval endast för stationer; namn är unika serverövergripande utan skiftlägesberoende.**
 - **Destinationsval i förväg tillåts; aktiv GPS startar först efter ombordstigning på säkert registrerad räls. All avstigning avslutar navigation, även före ankomst.**
 - **Automatiskt kortaste giltiga rutt, efter återstående verklig rälsträcka; ingen vägväljarmeny eller prioritet för namngivna leder.**
 - **Visa rödljusets vägval när det närmar sig, behåll det inne i zonen tills utfart bekräftats; dölj det alltid vid osäkerhet.**
-- **Bekräftad ankomst vid rätt räls/stoppzon även under rörelse; behåll `Framme` tills avstigning.**
+- **Bekräftad ankomst vid rätt räls/stoppzon från endera separat verifierade riktningen**, även under rörelse; behåll `Framme` tills avstigning.
 
 ### Fas 8 – JourneyMap och administrationspolering
 
@@ -854,6 +860,9 @@ En första komplett version av målarkitekturen ska demonstrera att:
 29. **Varje färdriktning på fysisk räls verifieras separat:** en inspelning åt ett håll ger inte automatiskt rätt att rutta åt andra hållet, men motsatt passage kan verifieras genom separat inspelning eller administratörsbeslut utan duplicerad geometri.
 30. **Ändrat/avstängt spår eller ny nätverksrevision** leder automatiskt till en ny **kortaste giltig rutt** om en finns. Finns ingen rutt visas ett tydligt fel utan fortsatt körvägledning på den ogiltiga rutten.
 31. **Namngivning sker enbart via markerad start och slut på registrerad räls plus ett namn**, med förhandsvisning och bekräftelse; någon separat namninspelning genom minecartkörning krävs inte.
+32. En station på genomgående räls kan nås **från båda separat verifierade färdriktningarna**, utan val av särskild ankomstriktning. En ovaliderad motsatt färdriktning är fortfarande otillåten.
+33. Aktiv, säkert matchad HUD visar **både kvarvarande spåravstånd till nästa rödljus och till destinationsstationen**. Saknas nästa rödljus visas ingen falsk distans; vid osäker position döljs opålitliga avstånd.
+34. **Vid första navigering visas enbart HUD**, utan inbyggd 3D-ruttmarkering. Spelaren kan valfritt slå på/av **enbart den planerade rutten** i Minecraft-världen; rutten uppdateras vid omplanering och döljs när navigationen avslutas, även utan JourneyMap.
 
 ## 20. Återstående detaljbeslut
 
@@ -877,6 +886,6 @@ Railway GPS ska modellera verklig räls, inte bara namngivna linjer mellan punkt
 
 Namn är fristående lager. Riksettan kan löpa genom flera rödljus, Centralbron kan omfatta endast den stockmarkerade delen av två parallella spår och namnlösa anslutningar kan fortfarande användas fullt ut. En resa beräknas genom det gemensamma fysiska nätet och duplicerar inte spår för varje destinationskombination.
 
-Klienten ska göra nätet synligt: zoner, spår, riktningar, övergångar, namn, aktiv resväg och valideringsfel ska kunna inspekteras i världen, styrt av separat inspektionsbehörighet. Spelaren får förvälja en station före ombordstigning, navigeringen startar först i minecart på säkert registrerad räls och all avstigning avslutar aktiv resa. Kortaste giltiga rutt väljs automatiskt, instruktionerna för ett rödljus syns vid infarten och under passage, och stationsnamn måste vara unika på hela servern. JourneyMap använder samma modell men förblir valfritt. **En fullständigt validerad survey publiceras direkt vid `finish`; inga obligatoriska granskningsutkast krävs.** Oparade parallella spår kan publiceras som separata spår, men spårparning kräver alltid administratörsbekräftelse. Spelarnas destinationer är enbart stationer. Ankomst kräver rätt räls/stoppzon men inte stillastående vagn; **Framme visas tills spelaren kliver ur minecarten**, varpå navigeringen avslutas automatiskt. Osäkert spår döljer alla sväng-/knappinstruktioner, survey får starta var som helst på rälsen med säker nätanslutning, och HUD visar högst en huvudled plus ett lokalt namn.
+Klienten ska kunna göra nätet synligt på begäran: zoner, spår, riktningar, övergångar, namn, aktiv resväg och valideringsfel kan inspekteras i världen, styrt av separat inspektionsbehörighet. **Vanliga spelare ser endast navigations-HUD som standard, men kan frivilligt slå på 3D-markering av den planerade rutten** utan JourneyMap. HUD visar båda avstånden till nästa rödljus och stationen, och stationer kan nås från båda verifierade riktningar på rätt räls. Spelaren får förvälja en station före ombordstigning, navigeringen startar först i minecart på säkert registrerad räls och all avstigning avslutar aktiv resa. Kortaste giltiga rutt väljs automatiskt, instruktionerna för ett rödljus syns vid infarten och under passage, och stationsnamn måste vara unika på hela servern. JourneyMap använder samma modell men förblir valfritt. **En fullständigt validerad survey publiceras direkt vid `finish`; inga obligatoriska granskningsutkast krävs.** Oparade parallella spår kan publiceras som separata spår, men spårparning kräver alltid administratörsbekräftelse. Spelarnas destinationer är enbart stationer. Ankomst kräver rätt räls/stoppzon men inte stillastående vagn; **Framme visas tills spelaren kliver ur minecarten**, varpå navigeringen avslutas automatiskt. Osäkert spår döljer alla sväng-/knappinstruktioner, survey får starta var som helst på rälsen med säker nätanslutning, och HUD visar högst en huvudled plus ett lokalt namn.
 
 Moddet förblir vägledande och icke-ingripande. Det berättar vad spelaren ska göra men styr aldrig minecart, knappar, redstone eller växlar.
