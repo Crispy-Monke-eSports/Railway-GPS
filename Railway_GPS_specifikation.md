@@ -55,6 +55,8 @@ Moddet ska inte styra minecarten, trycka på knappar, ändra redstone, lägga om
 
 Servern äger och validerar järnvägsnätet. Klienten tar emot en säker, versionsmärkt vy av nätet och ansvarar för presentation, positionsmatchning och navigeringsupplevelse. JourneyMap är en valfri visualisering, inte ett krav.
 
+**Terminologi:** Platsobjektet för vägval heter **rödljus** på svenska och **redlight** på engelska, även i scheman, kommandodesign, gränssnitt och acceptanskriterier. Det ska inte benämnas som ett separat slags vägval. Befintliga Java-identifierare kan fortfarande bära äldre namn tills koden migreras.
+
 ## 2. Grundprinciper
 
 ### 2.1 Fysik, vägval och namn är separata
@@ -62,11 +64,11 @@ Servern äger och validerar järnvägsnätet. Klienten tar emot en säker, versi
 Systemet ska skilja mellan:
 
 1. **Fysisk räls:** var de faktiska spåren går.
-2. **Tillåtna övergångar:** vilka vägval som går att göra i en korsning.
+2. **Tillåtna övergångar:** vilka vägval som går att göra i en rödljus.
 3. **Semantiska namn:** exempelvis Riksettan, Centralbron eller Södra tunneln.
 4. **Beräknad resa:** den kombination av riktade spår och övergångar som leder till spelarens mål.
 
-Ett namn får aldrig vara nödvändigt för att ett spår ska kunna användas. Ett namn får börja eller sluta mitt på en fysisk spårsektion och kan fortsätta genom flera korsningar.
+Ett namn får aldrig vara nödvändigt för att ett spår ska kunna användas. Ett namn får börja eller sluta mitt på en fysisk spårsektion och kan fortsätta genom flera rödljus.
 
 ### 2.2 Interna ID:n visas inte för spelaren
 
@@ -87,7 +89,7 @@ När två spår inte kan särskiljas säkert ska HUD visa den valda **destinatio
 | **Kontrollpunkt** | Intern teknisk referens till en station eller ett rödljus; ingen ytterligare platstyp behöver visas för spelaren. |
 | **Zon** | Ett tredimensionellt område bestående av en eller flera boxar. |
 | **Station** | Namngivet stoppställe på rälsen, vid spårslut eller på ett genomgående spår; inget krav på plattformar. |
-| **Korsning/rödljus** | Kontrollpunkt där spår möts och vissa övergångar kan väljas. |
+| **Rödljus/rödljus** | Kontrollpunkt där spår möts och vissa övergångar kan väljas. |
 | **Port** | En fysisk in- eller utgång där ett spår passerar kontrollpunktens gräns. |
 | **Spårsektion** | Fysisk korridor mellan två närliggande kontrollpunkter. |
 | **Fysiskt spår** | En inspelad rälsgeometri inom en sektion. En sektion kan innehålla flera parallella spår. |
@@ -163,9 +165,9 @@ Varje station har bara det som behövs för navigation: **unikt visningsnamn**, 
 
 **Endast stationer i spelarens aktuella dimension är valbara destinationer**, även om nätverket innehåller stationer i andra dimensioner. GPS:en får beräkna ankomst till samma stationsstopp från **endera verifierade riktningen**, utan stationstyp, plattformsval eller separat ankomstriktningskonfiguration. Spelaren kan välja destination **innan ombordstigning**; valet är då väntande och ingen aktiv rutt eller svänginstruktion visas. Om spelaren sitter i en **stillastående** minecart på registrerad räls förblir stationsvalet väntande: eventuellt kan status **”Väntar på färdriktning”** visas, men ingen aktiv rutt eller sväng-/knappinstruktion. **Först när vagnen börjar röra sig med säkert, stabilt observerad riktning** väljer GPS:en automatiskt kortaste giltiga rutt från faktisk rälsposition och riktning och aktiverar vägledningen. Om färdriktning eller rätt registrerat spår inte kan avgöras ska GPS:en inte gissa. GPS:en markerar **Framme** så snart minecarten med säker färdhistorik når rätt station/stoppzon på rätt spår; ett fullständigt stopp eller låg hastighet krävs inte. När **Framme** väl har bekräftats ska texten ligga kvar även om vagnen fortsätter röra sig. **Vid all avstigning, även före ankomst, avslutas aktiv navigation omedelbart och navigations-HUD:en försvinner.** Ny resa kräver nytt destinationsval. En förbipassage på fel spår får inte utlösa ankomst.
 
-### 5.3 Korsningar och rödljus
+### 5.3 Rödljus och rödljus
 
-En korsning består av:
+En rödljus består av:
 
 - tekniskt ID;
 - valfritt visningsnamn;
@@ -297,7 +299,7 @@ control_points
 zones
 zone_boxes
 stations
-junctions
+redlights
 ports
 track_sections
 physical_tracks
@@ -347,11 +349,11 @@ Administratören ska kunna markera två hörn i världen med ett verktyg. Klient
 
 Flera boxar kan läggas till samma zon. JourneyMap eller nätverksinspektören kan användas som kompletterande redigeringsyta.
 
-### 7.2 Skapa en korsning
+### 7.2 Skapa en rödljus
 
 Arbetsflödet är:
 
-1. Skapa korsningsobjektet.
+1. Skapa rödljusobjektet.
 2. Markera kontrollzonen runt hela växel-/rödljusområdet.
 3. Spela in spåren som passerar zonen.
 4. Låt moddet föreslå portar vid zonens gräns.
@@ -361,8 +363,8 @@ Arbetsflödet är:
 Illustrativ kommandodesign:
 
 ```mcfunction
-/rgps junction create sigma
-/rgps junction zone select sigma
+/rgps redlight create sigma
+/rgps redlight zone select sigma
 /rgps zone add-box
 /rgps zone confirm
 ```
@@ -434,7 +436,7 @@ En behörig användare markerar **början och slutet på den registrerade rälss
 
 ### 7.8 Namnge Centralbron
 
-Användaren markerar **början och slutet** på den redan registrerade rälsen, exempelvis två markeringar vid brons ändar, anger `Centralbron` och bekräftar den exakta visuella sträckan. Om ett separat parallellt spår **redan är administratörsgodkänt som par**, kan användaren svara **Ja** för att inkludera motsvarande del av spåret. **Nej är standard**; inget val visas utan godkänt par. Ingen namninspelning genom körning och inga falska korsningsnoder behövs.
+Användaren markerar **början och slutet** på den redan registrerade rälsen, exempelvis två markeringar vid brons ändar, anger `Centralbron` och bekräftar den exakta visuella sträckan. Om ett separat parallellt spår **redan är administratörsgodkänt som par**, kan användaren svara **Ja** för att inkludera motsvarande del av spåret. **Nej är standard**; inget val visas utan godkänt par. Ingen namninspelning genom körning och inga falska rödljusnoder behövs.
 
 ### 7.9 Anpassade instruktioner
 
@@ -490,16 +492,16 @@ Att nå en station eller kontrollzon får ge ett förslag om att avsluta, men sk
 
 ## 9. Navigationsgraf och ruttberäkning
 
-Grafens tillstånd bör vara mer detaljerat än en nod per korsning. Ett lämpligt internt tillstånd är en port eller spårände vid en kontrollpunkt.
+Grafens tillstånd bör vara mer detaljerat än en nod per rödljus. Ett lämpligt internt tillstånd är en port eller spårände vid en kontrollpunkt.
 
 Grafkanter är:
 
 1. **Passagekanter:** färd längs ett fysiskt spår i tillåten riktning.
 2. **Övergångskanter:** verifierad rörelse genom en kontrollpunkt från en passage till en annan.
 
-Detta förhindrar att alla spår vid samma korsning automatiskt betraktas som ömsesidigt anslutna.
+Detta förhindrar att alla spår vid samma rödljus automatiskt betraktas som ömsesidigt anslutna.
 
-Ruttberäkningen väljer **automatiskt den kortaste giltiga vägen** efter **återstående längd på verifierad fysisk räls utanför rödljuszoner**, från spelarens verkliga position och **säkert observerade färdriktning sedan vagnen börjat röra sig**. En stillastående vagn ger inget säkert färdriktningsval och ska inte starta en rutt av sig själv. På det första spåret räknas **bara den del som återstår framåt**, inte spårets hela längd. Endast spår i tillåten riktning och uttryckligen verifierade rödljusövergångar får användas. Ett rödljusbidrag är **noll**: ingen uppskattad väntetid, manuell korsningskostnad, övergångsvikt eller extra straffkostnad behövs. Namngivna vägar prioriteras **inte** framför kortare rutter. Avstängda spår och övergångar är **otillåtna**, inte dyrare alternativ. Spelaren behöver **inte** välja mellan flera förslag; likvärdiga kortaste rutter kan avgöras deterministiskt utan extra meny.
+Ruttberäkningen väljer **automatiskt den kortaste giltiga vägen** efter **återstående längd på verifierad fysisk räls utanför rödljuszoner**, från spelarens verkliga position och **säkert observerade färdriktning sedan vagnen börjat röra sig**. En stillastående vagn ger inget säkert färdriktningsval och ska inte starta en rutt av sig själv. På det första spåret räknas **bara den del som återstår framåt**, inte spårets hela längd. Endast spår i tillåten riktning och uttryckligen verifierade rödljusövergångar får användas. Ett rödljusbidrag är **noll**: ingen uppskattad väntetid, manuell rödljuskostnad, övergångsvikt eller extra straffkostnad behövs. Namngivna vägar prioriteras **inte** framför kortare rutter. Avstängda spår och övergångar är **otillåtna**, inte dyrare alternativ. Spelaren behöver **inte** välja mellan flera förslag; likvärdiga kortaste rutter kan avgöras deterministiskt utan extra meny.
 
 Dijkstra eller A* kan användas. Ruttresultatet är en följd av specifika riktade passager och övergångar, vilket gör att klienten vet exakt vilket av två parallella spår som avses.
 
@@ -593,10 +595,10 @@ Inspektions-/administrationsverktyg kräver respektive redan beslutade serverbeh
 Klienten ska kunna visa:
 
 - stationers enkla stoppunkter eller stoppzoner på rälsen;
-- korsningars kontrollzoner;
+- rödljusens kontrollzoner;
 - inspelade spår som linjer ovanför rälsen;
 - riktningspilar;
-- tillåtna övergångar genom korsningar;
+- tillåtna övergångar genom rödljus;
 - namnlager och deras exakta intervall;
 - aktiv resväg och valt fysiskt spår;
 - pågående inspelning;
@@ -611,7 +613,7 @@ Föreslagna standarder:
 | Aktiv resväg | Kraftig blå linje |
 | Station | Cyan zon |
 | Stationens stoppunkt | Grön markering |
-| Korsning | Orange zon |
+| Rödljus | Orange zon |
 | Otillåten övergång | Rött kryss |
 | Fel eller lös geometri | Röd markerad linje |
 | Pågående inspelning | Gul linje |
@@ -630,7 +632,7 @@ Nätverk
 │   └── Centralbron
 ├── Stationer
 │   └── Centralstationen
-├── Korsningar
+├── Rödljus
 │   └── Sigma
 └── Namnlösa spår
 ```
@@ -798,7 +800,7 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 
 - **Verifiera varje färdriktning separat:** en inspelning bekräftar observerad riktning, medan motsatt riktning kräver egen inspelning eller uttryckligt administratörsgodkännande. Samma geometrilinje återanvänds på verkligt dubbelriktade enkelspår.
 - **Geometribaserade förslag på parallella spårpar och obligatoriskt uttryckligt administratörsgodkännande**; inga automatiska parningar.
-- Tillåtna/otillåtna korsningsövergångar.
+- Tillåtna/otillåtna rödljusövergångar.
 - Kontrollinstruktioner för knappar och specialbyggen.
 
 ### Fas 6 – Namnlager
@@ -847,7 +849,7 @@ En första komplett version av målarkitekturen ska demonstrera att:
 6. Samma spår kan samtidigt visa Riksettan och Centralbron.
 7. Namnlösa spår kan ingå i resvägar utan att tekniska ID:n visas för spelaren.
 8. **Endast stationer** visas som destinationer. Stationen är ett enkelt stoppställe på rätt räls, vid spårslut eller genomgående spår; **inga plattformar krävs**. Ankomst bekräftas vid rätt stoppunkt även om vagnen rullar. **Framme** visas tills spelaren lämnar minecarten; då avslutas navigationen.
-9. En omöjlig sväng i en korsning används aldrig av ruttberäkningen.
+9. En omöjlig sväng i en rödljus används aldrig av ruttberäkningen.
 10. Automatisk vänster/höger/rakt-instruktion använder verklig in- och utgående geometri.
 11. En anpassad instruktion som `Välj knappen för Martyrön` har företräde.
 12. Administratören kan se zoner, spår, riktningar, övergångar, namn och fel visuellt.
@@ -901,7 +903,7 @@ Följande **tekniska detaljer**, som inte får ändra de fastställda produktbes
 
 ## 21. Sammanfattning
 
-Railway GPS ska modellera verklig räls, inte bara namngivna linjer mellan punkter. Kontrollpunkter representeras av tydliga 3D-zoner. Stationer är enkla **små tvåhörnsstoppzoner på rälsen**, utan krav på plattformar. Korsningar har portar och verifierade övergångar. En spårsektion kan innehålla ett, två eller flera fysiska spår med separata riktningar och geometrier.
+Railway GPS ska modellera verklig räls, inte bara namngivna linjer mellan punkter. Kontrollpunkter representeras av tydliga 3D-zoner. Stationer är enkla **små tvåhörnsstoppzoner på rälsen**, utan krav på plattformar. Rödljus har portar och verifierade övergångar. En spårsektion kan innehålla ett, två eller flera fysiska spår med separata riktningar och geometrier.
 
 Namn är fristående lager. Riksettan kan löpa genom flera rödljus, Centralbron kan omfatta endast den stockmarkerade delen av två parallella spår och namnlösa anslutningar kan fortfarande användas fullt ut. En resa beräknas genom det gemensamma fysiska nätet och duplicerar inte spår för varje destinationskombination.
 
