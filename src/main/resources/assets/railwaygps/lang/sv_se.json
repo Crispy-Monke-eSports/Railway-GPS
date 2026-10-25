@@ -45,6 +45,7 @@
   "railwaygps.nav.status.uncertain": "osäker position",
   "railwaygps.nav.stopped": "Railway GPS-navigering stoppad",
   "railwaygps.nav.station_removed": "Stationen har tagits bort; navigeringen stoppades",
+  "railwaygps.nav.recalculated": "Rutt omräknad",
   "railwaygps.ui.active": "Aktiv: %s · %s block kvar",
   "railwaygps.ui.active_uncertain": "Vald: %s · osäker position",
   "railwaygps.ui.admin": "Adminverktyg",

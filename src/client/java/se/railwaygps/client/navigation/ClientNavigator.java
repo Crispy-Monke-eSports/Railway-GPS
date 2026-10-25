@@ -13,6 +13,8 @@ import se.railwaygps.navigation.PhysicalRouteLeg;
 import se.railwaygps.navigation.PhysicalRoutePlan;
 import se.railwaygps.navigation.PhysicalRoutePlanner;
 import se.railwaygps.navigation.RailMatchConfidence;
+import se.railwaygps.navigation.RouteChange;
+import se.railwaygps.navigation.RouteValidity;
 import se.railwaygps.navigation.StartInstructionResolver;
 import se.railwaygps.navigation.StationDestination;
 import se.railwaygps.railway.model.ControlPoint;
@@ -43,6 +45,8 @@ public final class ClientNavigator {
 	private static boolean pendingWasMounted;
 	private static boolean pendingNoRoute;
 	private static boolean activeWhileMounted;
+	private static Component routeNotice;
+	private static int routeNoticeTicks;
 	private static final Map<String, ZoneOccupancyTracker> zoneTrackers = new HashMap<>();
 
 	private ClientNavigator() {
@@ -56,6 +60,8 @@ public final class ClientNavigator {
 		}
 		pendingDestination = destination;
 		plan = null;
+		routeNotice = null;
+		routeNoticeTicks = 0;
 		currentLeg = 0;
 		stableMovementTicks = 0;
 		pendingWasMounted = false;
@@ -96,6 +102,8 @@ public final class ClientNavigator {
 		pendingWasMounted = false;
 		pendingNoRoute = false;
 		activeWhileMounted = false;
+		routeNotice = null;
+		routeNoticeTicks = 0;
 		if (wasActive) {
 			revision++;
 		}
@@ -117,12 +125,16 @@ public final class ClientNavigator {
 		return revision;
 	}
 
+	public static Optional<Component> notice() { return Optional.ofNullable(routeNotice); }
+
 	public static void tick(Minecraft client) {
 		if (client.player == null) {
 			return;
 		}
+		if (routeNoticeTicks > 0 && --routeNoticeTicks == 0) routeNotice = null;
 		boolean mounted = client.player.getVehicle() instanceof AbstractMinecart;
 		if (plan != null && activeWhileMounted && !mounted) { stop(); return; }
+		if (plan != null && snapshot != null && snapshot.status() == NavigationStatus.ARRIVED) return;
 		if (plan == null && pendingDestination != null) {
 			RailwayNetwork network = ClientRailwayNetwork.network();
 			if (StationDestination.status(network, pendingDestination,
@@ -195,6 +207,15 @@ public final class ClientNavigator {
 				&& match.movementAlignment(movement.x, movement.y, movement.z) < MINIMUM_DIRECTION_ALIGNMENT
 				|| match != null && hasCompetingTrack(network, leg.track().id(), leg.track().dimension(), position, movement,
 						match.distanceToTrack())) {
+			Optional<PhysicalRoutePlan> rerouted = planFromCurrentTrack(player, network, plan.destination());
+			if (rerouted.isPresent() && RouteChange.replaced(plan, rerouted.get())) {
+				plan = rerouted.get();
+				currentLeg = 0;
+				showRecalculatedNotice();
+				revision++;
+				update(player);
+				return;
+			}
 			snapshot = uncertain(network, leg);
 			return;
 		}
@@ -277,10 +298,12 @@ public final class ClientNavigator {
 		}
 		Optional<PhysicalRoutePlan> replacement = planFromCurrentTrack(player, network, destination);
 		if (replacement.isPresent()) {
+			boolean changed = RouteChange.replaced(plan, replacement.get());
 			plan = replacement.get();
 			currentLeg = 0;
+			if (changed) showRecalculatedNotice();
 			revision++;
-		} else {
+		} else if (!RouteValidity.isUsable(network, plan)) {
 			plan = null;
 			pendingDestination = destination;
 			pendingNoRoute = true;
@@ -288,9 +311,16 @@ public final class ClientNavigator {
 			stableMovementTicks = 0;
 			activeWhileMounted = false;
 			snapshot = pending(network, destination, true);
+			routeNotice = null;
+			routeNoticeTicks = 0;
 			revision++;
 		}
 		networkVersion = ClientRailwayNetwork.version();
+	}
+
+	private static void showRecalculatedNotice() {
+		routeNotice = Component.translatable("railwaygps.nav.recalculated");
+		routeNoticeTicks = 60;
 	}
 
 	private static Optional<PhysicalRoutePlan> planFromCurrentTrack(

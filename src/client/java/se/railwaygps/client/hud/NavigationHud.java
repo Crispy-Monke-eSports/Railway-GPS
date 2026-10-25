@@ -28,7 +28,8 @@ public final class NavigationHud {
 			}
 
 			int width = 230;
-			int height = 72;
+			Component notice = ClientNavigator.notice().orElse(null);
+			int height = notice == null ? 72 : 86;
 			int x = (graphics.guiWidth() - width) / 2;
 			int y = 12;
 			graphics.fill(x, y, x + width, y + height, 0xB0101519);
@@ -43,6 +44,7 @@ public final class NavigationHud {
 			graphics.text(client.font, Component.translatable("railwaygps.hud.remaining",
 							Math.round(snapshot.distanceRemaining()), snapshot.junctionsRemaining()),
 					x + 10, y + 55, 0xFF9EABB3, true);
+			if (notice != null) graphics.text(client.font, notice, x + 10, y + 70, 0xFF64B5F6, true);
 		});
 	}
 
