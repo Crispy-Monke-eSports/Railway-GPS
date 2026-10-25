@@ -8,6 +8,7 @@ import net.minecraft.network.chat.Component;
 import se.railwaygps.client.ClientRailwayNetwork;
 import se.railwaygps.client.navigation.ClientNavigator;
 import se.railwaygps.client.navigation.NavigationSnapshot;
+import se.railwaygps.client.inspector.RailwayWorldOverlay;
 import se.railwaygps.navigation.StationDirectory;
 import se.railwaygps.railway.model.ControlPoint;
 
@@ -65,7 +66,7 @@ public final class NavigationScreen extends Screen {
 
 		int bottom = height - 42;
 		boolean administrator = RailwayGpsUi.canAdminister(minecraft);
-		int buttonCount = administrator ? 4 : 3;
+		int buttonCount = administrator ? 5 : 4;
 		int gap = 6;
 		int buttonWidth = (panelWidth - 32 - gap * (buttonCount - 1)) / buttonCount;
 		int buttonX = left + 16;
@@ -77,6 +78,12 @@ public final class NavigationScreen extends Screen {
 			feedback = Component.translatable("railwaygps.nav.stopped");
 		}).bounds(buttonX, bottom, buttonWidth, 20).build());
 		stop.active = ClientNavigator.snapshot().isPresent();
+		buttonX += buttonWidth + gap;
+		addRenderableWidget(Button.builder(Component.translatable(RailwayWorldOverlay.routeEnabled()
+				? "railwaygps.ui.route_on" : "railwaygps.ui.route_off"), button -> {
+			boolean visible = RailwayWorldOverlay.toggleRoute();
+			button.setMessage(Component.translatable(visible ? "railwaygps.ui.route_on" : "railwaygps.ui.route_off"));
+		}).bounds(buttonX, bottom, buttonWidth, 20).build());
 		buttonX += buttonWidth + gap;
 
 		if (administrator) {

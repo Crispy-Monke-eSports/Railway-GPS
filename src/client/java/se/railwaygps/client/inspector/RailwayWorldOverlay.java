@@ -2,12 +2,14 @@ package se.railwaygps.client.inspector;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.world.phys.Vec3;
 import se.railwaygps.client.ClientRailwayNetwork;
 import se.railwaygps.client.navigation.ClientNavigator;
 import se.railwaygps.model.TrackPoint;
+import se.railwaygps.navigation.RouteOverlayPreference;
 import se.railwaygps.railway.model.PhysicalTrack;
 import se.railwaygps.railway.model.PhysicalTopology;
 import se.railwaygps.railway.model.TrackDirection;
@@ -20,6 +22,8 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.io.IOException;
+import java.nio.file.Path;
 
 /** Optional native world overlay for inspecting the synchronized railway graph. */
 public final class RailwayWorldOverlay {
@@ -28,6 +32,9 @@ public final class RailwayWorldOverlay {
 	private static final int TRACK_COLOR = 0xD94DB7E5;
 	private static final int ACTIVE_COLOR = 0xFF35B9F3;
 	private static boolean enabled;
+	private static boolean routeEnabled;
+	private static final Path ROUTE_SETTING = FabricLoader.getInstance().getConfigDir()
+			.resolve("railwaygps-route-overlay.txt");
 	private static ZoneBox selectionPreview;
 	private static String highlightedFirstTrack;
 	private static String highlightedSecondTrack;
@@ -35,7 +42,17 @@ public final class RailwayWorldOverlay {
 	private RailwayWorldOverlay() { }
 
 	public static void register() {
+		routeEnabled = RouteOverlayPreference.load(ROUTE_SETTING);
 		LevelRenderEvents.AFTER_TRANSLUCENT_FEATURES.register(RailwayWorldOverlay::render);
+	}
+
+	public static boolean routeEnabled() { return routeEnabled; }
+
+	public static boolean toggleRoute() {
+		routeEnabled = !routeEnabled;
+		try { RouteOverlayPreference.save(ROUTE_SETTING, routeEnabled); }
+		catch (IOException ignored) { }
+		return routeEnabled;
 	}
 
 	public static boolean toggle() {
@@ -58,23 +75,28 @@ public final class RailwayWorldOverlay {
 
 	private static void render(net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext context) {
 		Minecraft client = Minecraft.getInstance();
-		if (!enabled || client.level == null || context.levelState().cameraRenderState.pos == null) return;
+		if ((!enabled && !routeEnabled) || client.level == null || context.levelState().cameraRenderState.pos == null) return;
 		String dimension = client.level.dimension().identifier().toString();
 		Vec3 camera = context.levelState().cameraRenderState.pos;
 		List<Line> lines = new ArrayList<>();
 
-		ClientRailwayNetwork.network().controlPoints().values().stream()
+		if (enabled) ClientRailwayNetwork.network().controlPoints().values().stream()
 				.filter(point -> point.zone().dimension().equals(dimension))
 				.forEach(point -> point.zone().boxes().stream()
 						.filter(box -> near(camera, box))
 						.forEach(box -> addBox(lines, box, ZONE_COLOR)));
-		if (selectionPreview != null && near(camera, selectionPreview)) {
+		if (enabled && selectionPreview != null && near(camera, selectionPreview)) {
 			addBox(lines, selectionPreview, 0xFFF2C94C);
 		}
 
 		Set<String> activeTracks = new HashSet<>();
-		ClientNavigator.activePlan().ifPresent(plan -> plan.legs().forEach(leg -> activeTracks.add(leg.track().id())));
+		ClientNavigator.activePlan().ifPresent(plan -> {
+			for (int index = ClientNavigator.currentLegIndex(); index < plan.legs().size(); index++) {
+				activeTracks.add(plan.legs().get(index).track().id());
+			}
+		});
 		for (PhysicalTrack track : ClientRailwayNetwork.network().tracks().values()) {
+			if (!enabled && !activeTracks.contains(track.id())) continue;
 			if (!track.dimension().equals(dimension) || track.points().stream().noneMatch(point -> near(camera, point))) continue;
 			boolean highlighted = track.id().equals(highlightedFirstTrack) || track.id().equals(highlightedSecondTrack);
 			int color = track.id().equals(highlightedFirstTrack) ? 0xFFFF5DA2
@@ -87,9 +109,9 @@ public final class RailwayWorldOverlay {
 						second.x() + 0.5, second.y() + 0.2, second.z() + 0.5, color,
 						highlighted ? 4f : activeTracks.contains(track.id()) ? 3f : 2f));
 			}
-			for (TrackDirection direction : track.directions()) addDirectionArrow(lines, track, direction, color);
+			if (enabled) for (TrackDirection direction : track.directions()) addDirectionArrow(lines, track, direction, color);
 		}
-		for (TrackPort port : PhysicalTopology.from(ClientRailwayNetwork.network()).ports()) {
+		if (enabled) for (TrackPort port : PhysicalTopology.from(ClientRailwayNetwork.network()).ports()) {
 			PhysicalTrack track = ClientRailwayNetwork.network().tracks().get(port.trackId());
 			if (track == null || !track.dimension().equals(dimension) || !near(camera, port.position())) continue;
 			double x = port.position().x() + 0.5;

@@ -62,6 +62,8 @@
   "railwaygps.ui.search_hint": "Search stations and junctions…",
   "railwaygps.ui.start": "Start navigation",
   "railwaygps.ui.stop": "Stop",
+  "railwaygps.ui.route_off": "3D route: Off",
+  "railwaygps.ui.route_on": "3D route: On",
   "railwaygps.ui.subtitle": "Choose where you want to go",
   "railwaygps.ui.title": "Railway GPS",
   "railwaygps.pairing.ambiguous": " · multiple candidates",

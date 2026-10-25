@@ -62,6 +62,8 @@
   "railwaygps.ui.search_hint": "Sök stationer och korsningar…",
   "railwaygps.ui.start": "Starta navigering",
   "railwaygps.ui.stop": "Stoppa",
+  "railwaygps.ui.route_off": "3D-rutt: Av",
+  "railwaygps.ui.route_on": "3D-rutt: På",
   "railwaygps.ui.subtitle": "Välj vart du vill åka",
   "railwaygps.ui.title": "Railway GPS",
   "railwaygps.pairing.ambiguous": " · flera kandidater",
