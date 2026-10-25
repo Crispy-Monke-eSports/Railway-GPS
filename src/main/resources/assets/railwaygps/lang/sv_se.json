@@ -37,7 +37,7 @@
   "railwaygps.nav.not_active": "Navigeringen är inte aktiv",
   "railwaygps.nav.start.no_route": "Ingen tillåten järnvägsrutt från %s till %s",
   "railwaygps.nav.start.no_route_from_track": "Ingen tillåten rutt från den aktuella fysiska rälsen till %s",
-  "railwaygps.nav.start.not_near_node": "Starta navigering nära en registrerad station eller knutpunkt",
+  "railwaygps.nav.start.not_near_node": "Starta navigering på en registrerad räls",
   "railwaygps.nav.start.not_near_track": "Placera vagnen på en registrerad fysisk räls innan navigeringen startas",
   "railwaygps.nav.start.started": "Navigerar till %s",
   "railwaygps.nav.start.pending": "%s vald; väntar på stabil rörelse med gruvvagnen",
@@ -56,11 +56,11 @@
   "railwaygps.ui.tools": "Verktyg",
   "railwaygps.ui.empty": "Ingen destination matchar sökningen",
   "railwaygps.ui.kind.dimension_gate": "Dimensionsport",
-  "railwaygps.ui.kind.junction": "Korsning",
+  "railwaygps.ui.kind.junction": "Rödljus",
   "railwaygps.ui.kind.station": "Station",
   "railwaygps.ui.kind.terminal": "Slutstation",
   "railwaygps.ui.search": "Sök destination",
-  "railwaygps.ui.search_hint": "Sök stationer och korsningar…",
+  "railwaygps.ui.search_hint": "Sök stationer…",
   "railwaygps.ui.start": "Starta navigering",
   "railwaygps.ui.stop": "Stoppa",
   "railwaygps.ui.route_off": "3D-rutt: Av",
@@ -102,6 +102,7 @@
   "railwaygps.survey.metrics": "%s rälsblock · %s kontrollpunkter · %s block färdade · %s sekunder",
   "railwaygps.survey.safety": "Inget publiceras förrän hela rälsvägen har klarat valideringen",
   "railwaygps.survey.start": "Starta inventering",
+  "railwaygps.survey.hud.recording": "Spelar in · %s block",
   "railwaygps.survey.status.cancelled": "Inventeringen avbröts; inget sparades",
   "railwaygps.survey.status.disconnected": "Rälsen är inte sammanhängande vid %s; inget sparades",
   "railwaygps.survey.status.finish_zone": "Kör in i en annan kontrollpunktszon innan du slutför",
@@ -126,7 +127,8 @@
   ,"railwaygps.redlight.instruction_hint": "T.ex. Välj knappen för Martyrön"
   ,"railwaygps.redlight.off": "Av"
   ,"railwaygps.redlight.on": "På"
-  ,"railwaygps.redlight.row": "%s · %s → %s · %s"
+  ,"railwaygps.redlight.row": "%s · %s → %s · %s",
+  "railwaygps.redlight.page": "Sida %s av %s"
   ,"railwaygps.redlight.saved": "Validerad rödljusrevision publicerad"
   ,"railwaygps.redlight.save_instruction": "Spara ordagrann instruktion"
   ,"railwaygps.redlight.saving": "Validerar och publicerar…"
