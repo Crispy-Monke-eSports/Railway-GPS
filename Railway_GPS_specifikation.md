@@ -55,7 +55,7 @@ Moddet ska inte styra minecarten, trycka på knappar, ändra redstone, lägga om
 
 Servern äger och validerar järnvägsnätet. Klienten tar emot en säker, versionsmärkt vy av nätet och ansvarar för presentation, positionsmatchning och navigeringsupplevelse. JourneyMap är en valfri visualisering, inte ett krav.
 
-**Terminologi:** Platsobjektet för vägval heter **rödljus** på svenska och **redlight** på engelska, även i scheman, kommandodesign, gränssnitt och acceptanskriterier. Det ska inte benämnas som ett separat slags vägval. Befintliga Java-identifierare kan fortfarande bära äldre namn tills koden migreras.
+**Terminologi:** Platsobjektet för vägval heter **rödljus** på svenska och **redlight** på engelska, även i scheman, kommandodesign, gränssnitt och acceptanskriterier. Det finns ingen separat objekttyp eller äldre alternativ benämning för dessa vägval i den nya specifikationen. Befintliga Java-identifierare kan fortfarande bära äldre namn tills koden migreras.
 
 ## 2. Grundprinciper
 
