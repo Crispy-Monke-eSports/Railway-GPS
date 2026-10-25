@@ -18,7 +18,7 @@ Den här specifikationen beskriver den önskade lösningen utan krav på bakåtk
 - **Administratörsinstruktioner:** visas **ordagrant**, oberoende av spelarens språk; endast inbyggda standardtexter översätts.
 - **Behörigheter:** separata serverrättigheter för inspektion, namngivning, inspelning samt administration/publicering.
 - **Rödljus:** endast in-/utgående spår, verifierade vägval och instruktioner. Ingen intern räls, redstone-modell eller genomfartskostnad.
-- **Destination före ombordstigning:** spelaren får välja en station i förväg. Valet väntar tills spelaren sitter i en minecart på säkert identifierad registrerad räls; **först då startar navigeringen och ruttberäkningen**. Inga väganvisningar till fots.
+- **Destination före ombordstigning:** spelaren får välja en station **i sin aktuella dimension** i förväg. Valet förblir väntande tills spelaren sitter i en minecart och **verklig, stabil rörelse på säkert identifierad registrerad räls visar färdriktningen**; först då aktiveras ruttberäkning och vägledning. Inga väganvisningar till fots eller i en stillastående vagn.
 - **Avstigning:** **all** avstigning avslutar en aktiv navigation omedelbart, även **före** ankomst; automatisk återupptagning ska inte ske.
 - **Rödljusinstruktionens tidpunkt:** visa vägvalet när ett rödljus **börjar närma sig**, behåll instruktionen under passagen genom dess zon och avsluta/byta den när rätt utgående räls har bekräftats; vid osäker position gäller alltid regeln om att dölja instruktioner.
 - **Ruttval:** välj automatiskt den **kortaste verifierade, giltiga rutten** utifrån återstående fysisk rälssträcka, med respekt för riktning och tillåtna rödljusövergångar. **Ingen riktning på ett fysiskt spår antas vara körbar utan inspelad eller uttryckligen administratörsgodkänd verifiering**, även om samma räls går att färdas på åt andra hållet i Minecraft. Namngivna leder prioriteras inte och spelaren behöver inte välja mellan alternativa rutter.
@@ -26,7 +26,7 @@ Den här specifikationen beskriver den önskade lösningen utan krav på bakåtk
 - **Namngivning:** behörig användare **markerar sträckans början och slut på befintlig inspelad räls och anger ett namn**. Förhandsvisa exakt träffad räls/sträcka och begär val om flera olika sträckor är möjliga. **Ingen särskild kör-/minecart-inspelning för namngivning** ska implementeras; fysisk survey för att registrera räls är en annan funktion.
 - **Ankomstriktning:** en station kan nås **från båda håll** på sin anslutna fysiska räls **om respektive färdriktning redan är verifierad** genom inspelning eller administratörsgodkännande. Ingen särskild stationsankomstriktning ska behöva anges; motsatt färd godkänns aldrig automatiskt.
 - **HUD-avstånd:** under aktiv och säker navigering visas **både återstående avstånd till nästa rödljus och till destinationsstationen** i block, mätta längs planerad fysisk räls. Finns inget ytterligare rödljus visas ingen vilseledande siffra för det avståndet; vid osäker position döljs otillförlitliga avstånd.
-- **Världsrutt:** standardläget är **enbart navigations-HUD, utan 3D-ruttmarkering i Minecraft-världen**. Spelaren får själv slå på eller av visning av den planerade rälsrutten vid behov, utan JourneyMap. Den valfria rutten släcks när navigeringen avslutas.
+- **Världsrutt:** vid **första användningen** visas **bara HUD**, utan 3D-rutt i Minecraft-världen. Spelaren kan själv slå på/av den planerade rutten utan JourneyMap; **det lokala personliga valet sparas mellan resor och spelstarter**. Den ritade rutten släcks när navigeringen avslutas, men det sparade valet ändras inte.
 - **Stillastående minecart:** ett valt stationsmål förblir väntande medan vagnen står stilla. GPS:en börjar inte vägleda förrän vagnen **faktiskt rör sig med säkert identifierad riktning på registrerad räls**. Spelarens blick, valfri riktning eller förmodad kortaste väg får inte användas för att gissa färdriktning.
 - **Namngivning av godkänt parallellt spårpar:** när ett annat fysiskt spår **redan är uttryckligen godkänt som par av administratör** erbjuds ett enkelt **ja/nej-val** om samma namn även ska gälla den rälsen. **Nej är förvalt**; annars namnges bara markerad räls. Inget val visas utan godkänt par, och namngivningsrollen får inte ändra parning eller riktningar.
 - **Notis vid omräkning:** när en aktiv rutt **faktiskt byts till en ny giltig rutt**, visa kort den lokaliserade texten **`Rutt omräknad`**, sedan nya instruktioner. Notisen kräver ingen bekräftelse och pausar ingenting. Om ingen rutt finns visas tidigare beslutade felet **`Ingen giltig väg till stationen`** i stället.
@@ -133,7 +133,7 @@ Spelare utan Railway GPS ska kunna ansluta och spela normalt. Servern skickar en
 
 ### 5.1 Zoner
 
-En zon är dimensionsbunden och består av en eller flera axis-aligned bounding boxes. Rödljus kan ha en sammansatt zon för att identifiera infart och utfart. **Stationer behöver bara en enkel stoppunkt eller stoppzon på rätt räls**; inget komplext stationsområde eller plattformssystem krävs.
+En zon är dimensionsbunden och består av en eller flera axis-aligned bounding boxes. Rödljus kan ha en sammansatt zon för att identifiera infart och utfart. **Stationer använder en liten enkel tvåhörnsstoppzon kopplad till rätt räls**; inget komplext stationsområde eller plattformssystem krävs.
 
 ```json
 {
@@ -649,7 +649,7 @@ När ett objekt väljs ska det kunna:
 
 Railway GPS öppnas med en konfigurerbar tangent (`R` som standard). Vanliga spelare får en lättåtkomlig inställning för **visa/dölj planerad 3D-rutt**, med **av första gången** och sedan spelarens **lokalt sparade senaste val över både resor och spelstarter**, medan HUD alltid finns kvar vid aktiv navigering. De får en sökbar
 destinationslista med **enbart stationer i spelarens aktuella dimension** (spårslut ingår som stationer; rödljus och stationer i andra dimensioner är aldrig valbara destinationer) samt tydliga knappar för att
-välja eller **byta destination under pågående resa** eller avsluta aktiv/väntande navigation. Tekniska ID:n behöver inte användas. **Destinationsval till fots sparas som väntande val; aktiv vägledning startar automatiskt först i en minecart på säkert matchad registrerad räls.** Vid all avstigning avbryts aktiv navigation, utan automatisk återupptagning.
+välja eller **byta destination under pågående resa** eller avsluta aktiv/väntande navigation. Tekniska ID:n behöver inte användas. **Destinationsval till fots sparas som väntande val; aktiv vägledning startar automatiskt först när minecarten verkligen börjar röra sig med säkert matchad registrerad räls och observerad färdriktning.** Vid all avstigning avbryts aktiv navigation, utan automatisk återupptagning.
 
 Behöriga användare får de **inspektions-, namn-, inspelnings- och administrationsverktyg** som deras separata serverrättigheter tillåter. Administratörer får dessutom knappen **Adminverktyg**. Den öppnar redigeringsläget, som visar
 aktuella musåtgärder och vald geometri i en HUD, i samma anda som verktygspaletten i SimpleBlueprints. För
@@ -862,7 +862,7 @@ En första komplett version av målarkitekturen ska demonstrera att:
 21. En behörig spelare kan **starta survey var som helst på rälsen**, och publicering lyckas endast vid säker nätanslutning och full validering.
 22. HUD visar högst **en huvudled och ett lokalt rälssträckenamn**; administratörens anpassade instruktioner visas **ordagrant**, oberoende av språk.
 23. **Framme** visas kvar tills spelaren **stiger ur minecarten**, då navigeringen avslutas automatiskt.
-24. Spelaren får **välja station till fots**; ingen aktiv rutt eller körinstruktion startar förrän hen sitter i en minecart på säkert identifierad registrerad räls.
+24. Spelaren får **välja station i sin aktuella dimension till fots**; ingen aktiv rutt eller körinstruktion startar förrän hen sitter i en minecart som **faktiskt rör sig med säkert identifierad färdriktning på registrerad räls**.
 25. **All avstigning** avslutar aktiv navigering omedelbart, även **före** ankomst, och senare ombordstigning återupptar inte resan automatiskt.
 26. Rödljusets vägvals-/knappinstruktion börjar visas **under infarten när rödljuset närmar sig**, ligger kvar **inne i zonen** tills faktisk utgång bekräftas, och döljs vid osäker position.
 27. GPS:en väljer **utan extra fråga den kortaste verifierade rutten** utifrån kvarvarande fysisk rälslängd och tillåtna riktade övergångar; namngivna leder ger ingen förtur och rödljus ger ingen extrakostnad.
@@ -872,7 +872,7 @@ En första komplett version av målarkitekturen ska demonstrera att:
 31. **Namngivning sker enbart via markerad start och slut på registrerad räls plus ett namn**, med förhandsvisning och bekräftelse; någon separat namninspelning genom minecartkörning krävs inte.
 32. En station på genomgående räls kan nås **från båda separat verifierade färdriktningarna**, utan val av särskild ankomstriktning. En ovaliderad motsatt färdriktning är fortfarande otillåten.
 33. Aktiv, säkert matchad HUD visar **både kvarvarande spåravstånd till nästa rödljus och till destinationsstationen**. Saknas nästa rödljus visas ingen falsk distans; vid osäker position döljs opålitliga avstånd.
-34. **Vid första navigering visas enbart HUD**, utan inbyggd 3D-ruttmarkering. Spelaren kan valfritt slå på/av **enbart den planerade rutten** i Minecraft-världen; rutten uppdateras vid omplanering och döljs när navigationen avslutas, även utan JourneyMap.
+34. **Vid första användningen visas enbart HUD**, utan inbyggd 3D-ruttmarkering. Spelaren kan valfritt slå på/av **enbart den planerade rutten** i Minecraft-världen; **valet sparas mellan resor och omstarter** och rutten uppdateras vid omplanering och döljs när navigationen avslutas, även utan JourneyMap.
 35. Efter att en spelare valt station i förväg eller klivit in i en **stillastående minecart** väntar GPS:en på **säkert observerad rörelse och riktning** innan någon aktiv rutt eller vägvals-/knappinstruktion visas; färdriktning får inte gissas.
 36. Vid namngivning av start-/slutmarkerad räls visas ett enkelt **Ja/Nej-val (förvalt Nej)** för att också namnge det **redan administratörsgodkända separata parade spåret**; annars namnges enbart markerad räls. Ingen automatisk parning eller namnspridning.
 37. När en annan **giltig rutt faktiskt ersätter** en pågående rutt visas kort den icke-blockerande texten **”Rutt omräknad”**, följd av nya instruktioner; om ingen väg finns visas i stället ett tydligt fel.
