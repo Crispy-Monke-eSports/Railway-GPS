@@ -146,5 +146,25 @@
   ,"railwaygps.station.select": "Markera två motsatta hörn i världen"
   ,"railwaygps.station.selection": "Zon: %s"
   ,"railwaygps.station.subtitle": "Ett namn och en zon med två hörn"
-  ,"railwaygps.station.title": "Skapa station"
+  ,"railwaygps.station.title": "Skapa station",
+  "railwaygps.editor.create_redlight_hint": "Tryck R för att granska och skapa rödljuset",
+  "railwaygps.redlight.create": "Skapa rödljuszon",
+  "railwaygps.redlight.create_title": "Skapa rödljus",
+  "railwaygps.redlight.create_name": "Rödljusets namn",
+  "railwaygps.redlight.create_name_hint": "T.ex. Signal vid Centralbron",
+  "railwaygps.redlight.create_select": "Markera rödljusets två hörn",
+  "railwaygps.redlight.create_subtitle": "Markera zonen och ange namn; passager läggs till efteråt",
+  "railwaygps.redlight.create_help": "Inventera rälsen som ansluter till rödljuset innan du lägger till passager",
+  "railwaygps.redlight.create_error": "Kunde inte skapa rödljus: %s",
+  "railwaygps.redlight.created": "Rödljuset %s skapades",
+  "railwaygps.redlight.add_passage": "Lägg till rödljuspassage",
+  "railwaygps.redlight.create_passage": "Skapa passage",
+  "railwaygps.redlight.create_passage_subtitle": "Välj rödljus, inkommande räls och utgående räls",
+  "railwaygps.redlight.passage_created": "Rödljuspassagen har skapats",
+  "railwaygps.redlight.choose_control": "Rödljus: %s (%s/%s)",
+  "railwaygps.redlight.choose_incoming": "Inkommande: %s (%s/%s)",
+  "railwaygps.redlight.choose_outgoing": "Utgående: %s (%s/%s)",
+  "railwaygps.redlight.no_controls": "Skapa först en rödljuszon",
+  "railwaygps.redlight.no_tracks": "Inventera inkommande och utgående räls vid valt rödljus",
+  "railwaygps.redlight.page": "Sida %s av %s"
 }

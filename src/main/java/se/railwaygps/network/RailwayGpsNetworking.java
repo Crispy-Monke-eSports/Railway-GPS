@@ -13,8 +13,11 @@ import se.railwaygps.railway.editing.RailwayNetworkEditor;
 import se.railwaygps.server.RailwayGpsServer;
 import se.railwaygps.storage.RailwayNetworkJsonCodec;
 import se.railwaygps.railway.model.RailwayNetwork;
+import se.railwaygps.railway.model.TrackDirection;
+import se.railwaygps.railway.model.TraversalRef;
 
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -31,8 +34,29 @@ public final class RailwayGpsNetworking {
 		PayloadTypeRegistry.clientboundPlay().register(TransitionToggleResultPayload.TYPE, TransitionToggleResultPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(PermissionSnapshotPayload.TYPE, PermissionSnapshotPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(CreateStationPayload.TYPE, CreateStationPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(ZoneCornerPayload.TYPE, ZoneCornerPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(CreateRedlightPayload.TYPE, CreateRedlightPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(CreateRedlightPassagePayload.TYPE, CreateRedlightPassagePayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(TransitionTogglePayload.TYPE, TransitionTogglePayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(TransitionInstructionPayload.TYPE, TransitionInstructionPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(ZoneCornerPayload.TYPE, (payload, context) -> {
+			ServerPlayer player = context.player();
+			if (!RailwayPermissions.has(player, RailwayPermission.ADMIN)) return;
+			net.minecraft.core.BlockPos position = new net.minecraft.core.BlockPos(payload.x(), payload.y(), payload.z());
+			// Only accept clicks near the editor; do not load remote chunks for client-supplied coordinates.
+			long dx = (long) position.getX() - player.blockPosition().getX();
+			long dy = (long) position.getY() - player.blockPosition().getY();
+			long dz = (long) position.getZ() - player.blockPosition().getZ();
+			if (Math.abs(dx) > 16 || Math.abs(dy) > 16 || Math.abs(dz) > 16
+					|| dx * dx + dy * dy + dz * dz > 256 || !player.level().hasChunkAt(position)) return;
+			try {
+				var selections = RailwayGpsServer.get(player.level().getServer()).zoneSelections();
+				if (payload.first()) selections.markFirst(player, position);
+				else selections.markSecond(player, position);
+			} catch (IllegalStateException ignored) {
+				// The creation request reports a missing first/second corner to the user.
+			}
+		});
 		ServerPlayNetworking.registerGlobalReceiver(CreateStationPayload.TYPE, (payload, context) -> {
 			ServerPlayer player = context.player();
 			if (!RailwayPermissions.has(player, RailwayPermission.ADMIN)) {
@@ -45,6 +69,40 @@ public final class RailwayGpsNetworking {
 				sendStationResult(player, true, "railwaygps.station.created", payload.name().trim());
 			} catch (Exception exception) {
 				sendStationResult(player, false, "railwaygps.station.error", exception.getMessage());
+			}
+		});
+		ServerPlayNetworking.registerGlobalReceiver(CreateRedlightPayload.TYPE, (payload, context) -> {
+			ServerPlayer player = context.player();
+			if (!RailwayPermissions.has(player, RailwayPermission.ADMIN)) {
+				sendStationResult(player, false, "railwaygps.redlight.create_error", "Not allowed to create redlights");
+				return;
+			}
+			try {
+				StationCreator.createRedlight(RailwayGpsServer.get(player.level().getServer()), player,
+						payload.name(), payload.acknowledgeOverlaps());
+				sendStationResult(player, true, "railwaygps.redlight.created", payload.name().trim());
+			} catch (Exception exception) {
+				sendStationResult(player, false, "railwaygps.redlight.create_error", exception.getMessage());
+			}
+		});
+		ServerPlayNetworking.registerGlobalReceiver(CreateRedlightPassagePayload.TYPE, (payload, context) -> {
+			ServerPlayer player = context.player();
+			if (!RailwayPermissions.has(player, RailwayPermission.ADMIN)) {
+				sendTransitionResult(player, false, "Not allowed to create redlight passages");
+				return;
+			}
+			try {
+				TrackDirection incomingDirection = TrackDirection.valueOf(
+						payload.incomingDirection().toUpperCase(Locale.ROOT));
+				TrackDirection outgoingDirection = TrackDirection.valueOf(
+						payload.outgoingDirection().toUpperCase(Locale.ROOT));
+				RailwayGpsServer state = RailwayGpsServer.get(player.level().getServer());
+				state.save(RailwayNetworkEditor.addRedlightPassage(state.network(), payload.redlightId(),
+						new TraversalRef(payload.incomingTrackId(), incomingDirection),
+						new TraversalRef(payload.outgoingTrackId(), outgoingDirection), payload.instruction()));
+				sendTransitionResult(player, true, payload.redlightId());
+			} catch (Exception exception) {
+				sendTransitionResult(player, false, exception.getMessage());
 			}
 		});
 		ServerPlayNetworking.registerGlobalReceiver(TransitionTogglePayload.TYPE, (payload, context) -> {

@@ -46,13 +46,17 @@ alternatives governed by the same server checks.
 
 ### Control-point bounding boxes
 
-Press `R` and choose **Admin tools**, then left-click and right-click the two opposite block corners of the
-inclusive 3D zone. The selection is rendered in the world while editing. Then create the control point:
+Press `R` and choose **Tools** → **Administration**. Choose **Create station** or go to
+**Redlight passages** → **Create redlight zone**. The world editor uses left and right clicks to
+mark the two opposite block corners of an inclusive 3D zone; press `R` to return to the form,
+then enter a name and save. No commands or manual IDs are needed.
+
+The command interface remains available for administrators who prefer it:
 
 ```mcfunction
 /rgps zone first
 /rgps zone second
-/rgps control create <id> <station|junction|terminal|dimension_gate> <name...>
+/rgps control create <id> <station|redlight|terminal|dimension_gate> <name...>
 ```
 
 The zone determines when a vehicle has entered or left a station or junction. A one-block exit margin
@@ -85,18 +89,29 @@ Approving reverse travel on the same physical rail is a separate admin action un
 existing track geometry**. It adds the independently verified direction to that track without cloning its
 geometry or creating a parallel-track pair.
 
-### Permitted transitions and instructions
+### Redlights, permitted transitions and instructions
 
-Navigation only crosses a control point when the exact incoming-to-outgoing movement is registered:
+**No chat commands are required for redlight administration.** Press `R` → **Tools** →
+**Administration** → **Redlight passages**. From there:
+
+1. Choose **Create redlight zone**, enter its name, then select two opposite corners in the
+   world with left/right click. Press `R` to return and save. A redlight is a separate kind
+   of control point, not a station.
+2. Survey the connecting rails and verify the directions that are allowed to run through it.
+3. Choose **Add redlight passage**. Select the redlight, a verified **incoming** direction,
+   and a verified **outgoing** direction. Optionally enter a literal instruction for the driver,
+   then create the passage. IDs are generated on the server; invalid/duplicate pairs are rejected.
+4. In the paginated passage list, select any passage to independently enable/disable it or edit
+   its instruction. The server publishes a new validated network revision after every change.
+
+Navigation only crosses a redlight when that exact incoming-to-outgoing passage is registered
+and enabled. Existing routes and instructions remain intact when a passage is disabled.
+
+The command interface remains an optional admin alternative:
 
 ```mcfunction
-/rgps transition add <id> <control_point> <incoming_track> forward <outgoing_track> forward
-```
-
-Append text when the player must operate a named control:
-
-```mcfunction
-/rgps transition add mot_martyron sigma_station incoming_track forward martyr_track forward Välj knappen för Martyrön
+/rgps transition add <id> <redlight> <incoming_track> forward <outgoing_track> forward
+/rgps transition add mot_martyron sigma_redlight incoming_track forward martyr_track forward Välj knappen för Martyrön
 ```
 
 ### Naming part of the railway

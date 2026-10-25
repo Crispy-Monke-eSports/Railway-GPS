@@ -14,12 +14,23 @@ public final class StationCreator {
 
 	public static ControlPoint create(RailwayGpsServer state, ServerPlayer player, String name, boolean acknowledgeOverlaps)
 			throws IOException, NetworkValidationException {
-		if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("Enter a station name");
-		String id = "station-" + UUID.randomUUID().toString().replace("-", "");
-		ControlPoint station = state.zoneSelections().create(player, id, name.trim(), ControlPoint.Kind.STATION);
-		state.save(RailwayNetworkEditor.addControlPoint(state.network(), id, station.name(), station.kind(),
-				station.zone(), acknowledgeOverlaps));
+		return createControlPoint(state, player, name, ControlPoint.Kind.STATION, acknowledgeOverlaps);
+	}
+
+	public static ControlPoint createRedlight(RailwayGpsServer state, ServerPlayer player, String name,
+			boolean acknowledgeOverlaps) throws IOException, NetworkValidationException {
+		return createControlPoint(state, player, name, ControlPoint.Kind.REDLIGHT, acknowledgeOverlaps);
+	}
+
+	private static ControlPoint createControlPoint(RailwayGpsServer state, ServerPlayer player, String name,
+			ControlPoint.Kind kind, boolean acknowledgeOverlaps) throws IOException, NetworkValidationException {
+		if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("Enter a control point name");
+		String prefix = kind == ControlPoint.Kind.REDLIGHT ? "redlight-" : "station-";
+		String id = prefix + UUID.randomUUID().toString().replace("-", "");
+		ControlPoint point = state.zoneSelections().create(player, id, name.trim(), kind);
+		state.save(RailwayNetworkEditor.addControlPoint(state.network(), id, point.name(), point.kind(),
+				point.zone(), acknowledgeOverlaps));
 		state.zoneSelections().clear(player);
-		return station;
+		return point;
 	}
 }

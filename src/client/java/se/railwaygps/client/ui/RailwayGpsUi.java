@@ -26,7 +26,7 @@ public final class RailwayGpsUi {
 				if (client.gui.screen() != null) continue;
 				if (RailwayEditor.enabled()) {
 					RailwayEditor.finishSelection();
-					client.gui.setScreen(new StationCreationScreen());
+					client.gui.setScreen(new StationCreationScreen(RailwayEditor.creatingRedlight()));
 				}
 				else client.gui.setScreen(new NavigationScreen());
 			}
