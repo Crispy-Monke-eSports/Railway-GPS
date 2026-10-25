@@ -53,12 +53,14 @@ public final class RedlightScreen extends Screen {
 		previousPage = addRenderableWidget(Button.builder(Component.literal("‹"), button -> {
 			if (page > 0) {
 				page--;
+				clearSelection();
 				refresh();
 			}
 		}).bounds(left + 16, 210, 30, 20).build());
 		nextPage = addRenderableWidget(Button.builder(Component.literal("›"), button -> {
 			if ((page + 1) * PAGE_SIZE < transitions.size()) {
 				page++;
+				clearSelection();
 				refresh();
 			}
 		}).bounds(left + panelWidth - 46, 210, 30, 20).build());
@@ -135,6 +137,12 @@ public final class RedlightScreen extends Screen {
 		instruction.setValue(selected.instruction() == null ? "" : selected.instruction());
 		RailwayWorldOverlay.setHighlightedTrackPair(selected.incoming().trackId(), selected.outgoing().trackId());
 		refresh();
+	}
+
+	private void clearSelection() {
+		selected = null;
+		instruction.setValue("");
+		RailwayWorldOverlay.setHighlightedTrackPair(null, null);
 	}
 
 	private void saveInstruction() {
