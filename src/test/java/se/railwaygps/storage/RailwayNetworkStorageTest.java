@@ -72,6 +72,28 @@ class RailwayNetworkStorageTest {
 		assertEquals("Central", storage.load().controlPoints().get("central").name());
 	}
 
+	@Test
+	void failedLoadCannotOverwriteTheOriginalUntilAValidReload() throws Exception {
+		RailwayNetworkStorage storage = new RailwayNetworkStorage(world);
+		storage.save(network(7, "Central"));
+		Path originalFile = world.resolve("railwaygps/network.json");
+		String valid = Files.readString(originalFile);
+		String invalid = valid.replace("\"confirmationTicks\": 3", "\"confirmationTicks\": 0");
+		assertTrue(!valid.equals(invalid), "the fixture must have a serialized zone");
+		Files.writeString(originalFile, invalid);
+
+		assertThrows(se.railwaygps.model.NetworkValidationException.class, storage::load);
+		assertThrows(java.io.IOException.class, () -> storage.save(network(8, "Changed")));
+		assertEquals(invalid, Files.readString(originalFile),
+				"a failed startup must not overwrite the only copy of the broken network");
+
+		// An external repair/restore followed by a successful reload clears the guard.
+		Files.writeString(originalFile, valid);
+		assertEquals(7, storage.load().revision());
+		storage.save(network(8, "Changed"));
+		assertEquals(8, storage.load().revision());
+	}
+
 	private static RailwayNetwork network(long revision, String name) {
 		return new RailwayNetwork(revision,
 				Map.of("central", new ControlPoint("central", name, ControlPoint.Kind.STATION, zone(), Map.of())),
