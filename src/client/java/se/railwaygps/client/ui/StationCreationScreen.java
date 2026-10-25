@@ -18,6 +18,8 @@ public final class StationCreationScreen extends Screen {
 	private Button create;
 	private long seenResult;
 	private Component feedback;
+	private boolean acknowledgeOverlaps;
+	private Button overlapAcknowledgement;
 
 	public StationCreationScreen() {
 		super(Component.translatable("railwaygps.station.title"));
@@ -43,9 +45,14 @@ public final class StationCreationScreen extends Screen {
 			minecraft.gui.setScreen(null);
 			RailwayEditor.open();
 		}).bounds(left + 16, 100, panelWidth - 32, 22).build());
+		overlapAcknowledgement = addRenderableWidget(Button.builder(Component.empty(), button -> {
+			acknowledgeOverlaps = !acknowledgeOverlaps;
+			updateOverlapButton();
+		}).bounds(left + 16, 128, panelWidth - 32, 20).build());
+		updateOverlapButton();
 		create = addRenderableWidget(Button.builder(Component.translatable("railwaygps.station.create"), button -> {
 			feedback = Component.translatable("railwaygps.station.saving");
-			ClientPlayNetworking.send(new CreateStationPayload(name.getValue().trim()));
+			ClientPlayNetworking.send(new CreateStationPayload(name.getValue().trim(), acknowledgeOverlaps));
 			button.active = false;
 		}).bounds(left + 16, height - 42, 140, 20).build());
 		addRenderableWidget(Button.builder(Component.translatable("gui.back"), button -> {
@@ -78,6 +85,11 @@ public final class StationCreationScreen extends Screen {
 				&& RailwayEditor.hasCompleteSelection();
 	}
 
+	private void updateOverlapButton() {
+		if (overlapAcknowledgement != null) overlapAcknowledgement.setMessage(Component.translatable(
+				acknowledgeOverlaps ? "railwaygps.station.overlap_yes" : "railwaygps.station.overlap_no"));
+	}
+
 	@Override
 	public void extractBackground(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
 		extractTransparentBackground(graphics);
@@ -88,9 +100,9 @@ public final class StationCreationScreen extends Screen {
 		graphics.centeredText(font, title, width / 2, 24, 0xFFFFFFFF);
 		graphics.centeredText(font, Component.translatable("railwaygps.station.subtitle"), width / 2, 42, 0xFF9EABB3);
 		graphics.centeredText(font, Component.translatable("railwaygps.station.selection",
-				RailwayEditor.selectionText()), width / 2, 134,
+				RailwayEditor.selectionText()), width / 2, 160,
 				RailwayEditor.hasCompleteSelection() ? 0xFF65D18A : 0xFFFFC857);
-		graphics.centeredText(font, Component.translatable("railwaygps.station.all_rails"), width / 2, 154, 0xFF9EABB3);
+		graphics.centeredText(font, Component.translatable("railwaygps.station.all_rails"), width / 2, 178, 0xFF9EABB3);
 		if (feedback != null) graphics.centeredText(font, feedback, width / 2, height - 62, 0xFFFFC857);
 	}
 

@@ -57,7 +57,8 @@ public final class ZoneSelectionManager {
 		TrackPoint max = new TrackPoint(Math.max(first.getX(), second.getX()), Math.max(first.getY(), second.getY()),
 				Math.max(first.getZ(), second.getZ()));
 		return new ControlPoint(id, name, kind,
-				new Zone(selection.dimension(), List.of(new se.railwaygps.railway.model.ZoneBox(min, max)), DEFAULT_EXIT_MARGIN),
+				new Zone("zone-" + UUID.randomUUID().toString().replace("-", ""), selection.dimension(),
+						List.of(new se.railwaygps.railway.model.ZoneBox(min, max)), DEFAULT_EXIT_MARGIN, 3),
 				Map.of());
 	}
 

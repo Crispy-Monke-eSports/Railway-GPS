@@ -36,6 +36,9 @@ class RailwayNetworkStorageTest {
 
 		assertEquals(7, loaded.revision());
 		assertEquals("Central", loaded.controlPoints().get("central").name());
+		assertEquals(network.controlPoints().get("central").zone().id(),
+				loaded.controlPoints().get("central").zone().id());
+		assertEquals(3, loaded.controlPoints().get("central").zone().confirmationTicks());
 		assertTrue(Files.exists(world.resolve("railwaygps/network.json")));
 	}
 

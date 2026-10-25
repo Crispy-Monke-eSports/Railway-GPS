@@ -11,7 +11,7 @@ import se.railwaygps.railway.model.RailwayNetwork;
 import java.util.List;
 
 public final class RailwayNetworkJsonCodec {
-	public static final int SCHEMA_VERSION = 1;
+	public static final int SCHEMA_VERSION = 2;
 	private static final Gson GSON = new GsonBuilder()
 			.registerTypeAdapter(TrackPoint.class, new TrackPointAdapter())
 			.setPrettyPrinting()

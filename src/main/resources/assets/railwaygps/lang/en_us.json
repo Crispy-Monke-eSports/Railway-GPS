@@ -94,6 +94,8 @@
   ,"railwaygps.station.error": "Could not create station: %s"
   ,"railwaygps.station.name": "Station name"
   ,"railwaygps.station.name_hint": "Unique station name…"
+  ,"railwaygps.station.overlap_no": "Overlapping zones: do not acknowledge (recommended)"
+  ,"railwaygps.station.overlap_yes": "Overlapping zones: explicitly acknowledge"
   ,"railwaygps.station.saving": "Validating and saving…"
   ,"railwaygps.station.select": "Select two opposite corners in the world"
   ,"railwaygps.station.selection": "Zone: %s"

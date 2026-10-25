@@ -3,6 +3,7 @@ package se.railwaygps.railway.model;
 import org.junit.jupiter.api.Test;
 import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.model.TrackPoint;
+import se.railwaygps.railway.editing.ZoneOverlapAnalyzer;
 
 import java.util.List;
 import java.util.Map;
@@ -85,9 +86,10 @@ class RailwayNetworkValidatorTest {
 		PhysicalTrack one = track("one", "section", "a", "b", 0, 10, PhysicalTrack.Status.VERIFIED);
 		PhysicalTrack two = new PhysicalTrack("two", "section", "b", "a", "minecraft:overworld",
 				one.points().reversed(), 10, Set.of(TrackDirection.FORWARD), null, PhysicalTrack.Status.VERIFIED);
+		String acknowledgement = ZoneOverlapAnalyzer.key(a.zone().id(), b.zone().id());
 		RailwayNetwork network = new RailwayNetwork(1, Map.of("a", a, "b", b),
 				Map.of("section", new TrackSection("section", "a", "b", Set.of("one", "two"))),
-				Map.of("one", one, "two", two), Map.of(), Map.of());
+				Map.of("one", one, "two", two), Map.of(), Map.of(), Set.of(), Set.of(acknowledgement));
 
 		NetworkValidationReport report = RailwayNetworkValidator.inspect(network);
 		assertTrue(report.valid());
@@ -96,9 +98,22 @@ class RailwayNetworkValidatorTest {
 		assertTrue(report.warnings().stream().anyMatch(warning -> warning.contains("duplicate physical geometry")));
 	}
 
+	@Test
+	void unacknowledgedZoneOverlapIsBlocking() {
+		RailwayNetwork network = new RailwayNetwork(1, Map.of(
+				"a", station("a", "A", "minecraft:overworld", 0),
+				"b", station("b", "B", "minecraft:overworld", 0)),
+				Map.of(), Map.of(), Map.of(), Map.of());
+
+		NetworkValidationReport report = RailwayNetworkValidator.inspect(network);
+		assertFalse(report.valid());
+		assertTrue(report.errors().stream().anyMatch(error -> error.contains("acknowledgement is required")));
+	}
+
 	private static ControlPoint station(String id, String name, String dimension, int x) {
 		return new ControlPoint(id, name, ControlPoint.Kind.STATION,
-				new Zone(dimension, List.of(new ZoneBox(point(x, 63, -1), point(x + 2, 66, 1))), 1), Map.of());
+				new Zone("zone-" + id, dimension,
+						List.of(new ZoneBox(point(x, 63, -1), point(x + 2, 66, 1))), 1, 3), Map.of());
 	}
 
 	private static PhysicalTrack track(String id, String section, String from, String to,

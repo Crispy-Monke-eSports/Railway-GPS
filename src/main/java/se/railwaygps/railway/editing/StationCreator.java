@@ -12,12 +12,13 @@ import java.util.UUID;
 public final class StationCreator {
 	private StationCreator() { }
 
-	public static ControlPoint create(RailwayGpsServer state, ServerPlayer player, String name)
+	public static ControlPoint create(RailwayGpsServer state, ServerPlayer player, String name, boolean acknowledgeOverlaps)
 			throws IOException, NetworkValidationException {
 		if (name == null || name.trim().isEmpty()) throw new IllegalArgumentException("Enter a station name");
 		String id = "station-" + UUID.randomUUID().toString().replace("-", "");
 		ControlPoint station = state.zoneSelections().create(player, id, name.trim(), ControlPoint.Kind.STATION);
-		state.save(RailwayNetworkEditor.addControlPoint(state.network(), id, station.name(), station.kind(), station.zone()));
+		state.save(RailwayNetworkEditor.addControlPoint(state.network(), id, station.name(), station.kind(),
+				station.zone(), acknowledgeOverlaps));
 		state.zoneSelections().clear(player);
 		return station;
 	}

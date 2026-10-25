@@ -3,6 +3,7 @@ package se.railwaygps.railway.model;
 import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.model.IdValidator;
 import se.railwaygps.model.TrackGeometry;
+import se.railwaygps.railway.editing.ZoneOverlapAnalyzer;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -24,11 +25,19 @@ public final class RailwayNetworkValidator {
 		List<String> errors = new ArrayList<>();
 		List<String> warnings = new ArrayList<>();
 		Map<String, String> stationNames = new HashMap<>();
+		Map<String, String> zoneIds = new HashMap<>();
 		network.controlPoints().forEach((id, point) -> {
 			validateIdentity("Control point", id, point == null ? null : point.id(), errors);
 			if (point != null && point.zone() == null) {
 				errors.add("Control point '" + id + "' has no zone");
 			} else if (point != null) {
+				if (point.zone().id() == null || !point.zone().id().matches("[a-z0-9_-]+")) {
+					errors.add("Control point '" + id + "' has an invalid zone id");
+				} else {
+					String previous = zoneIds.putIfAbsent(point.zone().id(), id);
+					if (previous != null) errors.add("Control points '" + previous + "' and '" + id
+							+ "' share zone id '" + point.zone().id() + "'");
+				}
 				if (point.name() == null || point.name().isBlank()) {
 					errors.add("Control point '" + id + "' has no display name");
 				}
@@ -39,9 +48,23 @@ public final class RailwayNetworkValidator {
 					if (previous != null) errors.add("Stations '" + previous + "' and '" + id
 							+ "' use the same display name (case-insensitive): '" + point.name().trim() + "'");
 				}
+				if (point.kind() == ControlPoint.Kind.STATION && point.zone().boxes().size() != 1) {
+					errors.add("Station '" + id + "' must use exactly one two-corner zone box");
+				}
 			}
 		});
-		warnOverlappingZones(network, warnings);
+		List<ZoneOverlapAnalyzer.Overlap> overlaps = ZoneOverlapAnalyzer.find(network);
+		for (ZoneOverlapAnalyzer.Overlap overlap : overlaps) {
+			String message = "Control-point zones '" + overlap.firstControlPointId() + "' and '"
+					+ overlap.secondControlPointId() + "' overlap";
+			if (network.acknowledgedZoneOverlaps().contains(overlap.key())) warnings.add(message + " (acknowledged)");
+			else errors.add(message + "; explicit administrator acknowledgement is required");
+		}
+		for (String acknowledged : network.acknowledgedZoneOverlaps()) {
+			if (overlaps.stream().noneMatch(overlap -> overlap.key().equals(acknowledged))) {
+				errors.add("Zone-overlap acknowledgement '" + acknowledged + "' no longer refers to overlapping zones");
+			}
+		}
 		network.sections().forEach((id, section) -> {
 			validateIdentity("Section", id, section == null ? null : section.id(), errors);
 			if (section == null) {
@@ -189,21 +212,6 @@ public final class RailwayNetworkValidator {
 		}
 	}
 
-	private static void warnOverlappingZones(RailwayNetwork network, List<String> warnings) {
-		List<ControlPoint> points = new ArrayList<>(network.controlPoints().values());
-		for (int first = 0; first < points.size(); first++) {
-			for (int second = first + 1; second < points.size(); second++) {
-				ControlPoint a = points.get(first);
-				ControlPoint b = points.get(second);
-				if (a.zone() == null || b.zone() == null
-						|| !a.zone().dimension().equals(b.zone().dimension())) continue;
-				boolean overlap = a.zone().boxes().stream().anyMatch(one ->
-						b.zone().boxes().stream().anyMatch(two -> intersects(one, two)));
-				if (overlap) warnings.add("Control-point zones '" + a.id() + "' and '" + b.id() + "' overlap");
-			}
-		}
-	}
-
 	private static void warnDuplicateGeometry(RailwayNetwork network, List<String> warnings) {
 		List<PhysicalTrack> tracks = new ArrayList<>(network.tracks().values());
 		for (int first = 0; first < tracks.size(); first++) {
@@ -216,12 +224,6 @@ public final class RailwayNetworkValidator {
 				}
 			}
 		}
-	}
-
-	private static boolean intersects(ZoneBox first, ZoneBox second) {
-		return first.min().x() <= second.max().x() && first.max().x() >= second.min().x()
-				&& first.min().y() <= second.max().y() && first.max().y() >= second.min().y()
-				&& first.min().z() <= second.max().z() && first.max().z() >= second.min().z();
 	}
 
 	private static boolean sameEndpoints(String firstA, String firstB, String secondA, String secondB) {

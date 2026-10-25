@@ -56,7 +56,7 @@ public final class TrackLabelEditor {
 		labels.put(id, new TrackLabel(id, name.trim(), type, priority, color, ranges));
 		RailwayNetwork updated = new RailwayNetwork(network.revision() + 1,
 				network.controlPoints(), network.sections(), network.tracks(), network.transitions(), labels,
-				network.rejectedTrackPairings());
+				network.rejectedTrackPairings(), network.acknowledgedZoneOverlaps());
 		RailwayNetworkValidator.validate(updated);
 		return updated;
 	}

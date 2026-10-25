@@ -10,9 +10,16 @@ public record RailwayNetwork(
 		Map<String, PhysicalTrack> tracks,
 		Map<String, TrackTransition> transitions,
 		Map<String, TrackLabel> labels,
-		Set<String> rejectedTrackPairings
+		Set<String> rejectedTrackPairings,
+		Set<String> acknowledgedZoneOverlaps
 ) {
-	public static final RailwayNetwork EMPTY = new RailwayNetwork(0, Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Set.of());
+	public static final RailwayNetwork EMPTY = new RailwayNetwork(0, Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Set.of(), Set.of());
+
+	public RailwayNetwork(long revision, Map<String, ControlPoint> controlPoints, Map<String, TrackSection> sections,
+			Map<String, PhysicalTrack> tracks, Map<String, TrackTransition> transitions, Map<String, TrackLabel> labels,
+			Set<String> rejectedTrackPairings) {
+		this(revision, controlPoints, sections, tracks, transitions, labels, rejectedTrackPairings, Set.of());
+	}
 
 	public RailwayNetwork(long revision, Map<String, ControlPoint> controlPoints, Map<String, TrackSection> sections,
 			Map<String, PhysicalTrack> tracks, Map<String, TrackTransition> transitions, Map<String, TrackLabel> labels) {
@@ -26,5 +33,6 @@ public record RailwayNetwork(
 		transitions = transitions == null ? Map.of() : Map.copyOf(transitions);
 		labels = labels == null ? Map.of() : Map.copyOf(labels);
 		rejectedTrackPairings = rejectedTrackPairings == null ? Set.of() : Set.copyOf(rejectedTrackPairings);
+		acknowledgedZoneOverlaps = acknowledgedZoneOverlaps == null ? Set.of() : Set.copyOf(acknowledgedZoneOverlaps);
 	}
 }

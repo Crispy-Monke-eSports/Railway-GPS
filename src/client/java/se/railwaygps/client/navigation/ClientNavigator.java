@@ -17,10 +17,13 @@ import se.railwaygps.railway.model.PhysicalTrack;
 import se.railwaygps.railway.model.RailwayNetwork;
 import se.railwaygps.railway.model.TraversalRef;
 import se.railwaygps.railway.model.ZoneBox;
+import se.railwaygps.railway.model.ZoneOccupancyTracker;
 
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.HashMap;
+import java.util.Map;
 
 public final class ClientNavigator {
 	private static final double TRACK_MATCH_DISTANCE = 6.0;
@@ -30,6 +33,7 @@ public final class ClientNavigator {
 	private static String networkVersion = "";
 	private static NavigationSnapshot snapshot;
 	private static long revision;
+	private static final Map<String, ZoneOccupancyTracker> zoneTrackers = new HashMap<>();
 
 	private ClientNavigator() {
 	}
@@ -59,6 +63,7 @@ public final class ClientNavigator {
 		}
 		plan = calculated.get();
 		currentLeg = 0;
+		zoneTrackers.clear();
 		networkVersion = ClientRailwayNetwork.version();
 		revision++;
 		update(player);
@@ -70,6 +75,7 @@ public final class ClientNavigator {
 		plan = null;
 		snapshot = null;
 		currentLeg = 0;
+		zoneTrackers.clear();
 		if (wasActive) {
 			revision++;
 		}
@@ -126,7 +132,7 @@ public final class ClientNavigator {
 		double distanceToNext = match.trackLength() == 0
 				? leg.track().length()
 				: geometryRemaining * leg.track().length() / match.trackLength();
-		if (match.distanceToTrack() <= TRACK_MATCH_DISTANCE && isInsideControlPoint(player, network, leg.to())
+		if (match.distanceToTrack() <= TRACK_MATCH_DISTANCE && confirmedInsideControlPoint(player, network, leg.to())
 				&& geometryRemaining <= 7) {
 			currentLeg++;
 			revision++;
@@ -253,6 +259,15 @@ public final class ClientNavigator {
 		ControlPoint point = network.controlPoints().get(id);
 		return point != null && point.zone().dimension().equals(player.level().dimension().identifier().toString())
 				&& point.zone().containsForExit(player.getX(), player.getY(), player.getZ());
+	}
+
+	private static boolean confirmedInsideControlPoint(LocalPlayer player, RailwayNetwork network, String id) {
+		ControlPoint point = network.controlPoints().get(id);
+		if (point == null || !point.zone().dimension().equals(
+				player.level().dimension().identifier().toString())) return false;
+		ZoneOccupancyTracker tracker = zoneTrackers.computeIfAbsent(point.zone().id(), ignored -> new ZoneOccupancyTracker());
+		tracker.observe(point.zone(), player.getX(), player.getY(), player.getZ());
+		return tracker.inside();
 	}
 
 	private static double distanceSquared(Vec3 position, ZoneBox box) {

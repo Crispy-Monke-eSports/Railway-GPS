@@ -28,7 +28,8 @@ public final class RailwayGpsNetworking {
 				return;
 			}
 			try {
-				StationCreator.create(RailwayGpsServer.get(player.level().getServer()), player, payload.name());
+				StationCreator.create(RailwayGpsServer.get(player.level().getServer()), player, payload.name(),
+						payload.acknowledgeOverlaps());
 				sendStationResult(player, true, "railwaygps.station.created", payload.name().trim());
 			} catch (Exception exception) {
 				sendStationResult(player, false, "railwaygps.station.error", exception.getMessage());

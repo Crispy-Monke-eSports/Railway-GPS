@@ -94,6 +94,8 @@
   ,"railwaygps.station.error": "Kunde inte skapa station: %s"
   ,"railwaygps.station.name": "Stationsnamn"
   ,"railwaygps.station.name_hint": "Unikt stationsnamn…"
+  ,"railwaygps.station.overlap_no": "Överlappande zoner: kvittera inte (rekommenderas)"
+  ,"railwaygps.station.overlap_yes": "Överlappande zoner: kvittera uttryckligen"
   ,"railwaygps.station.saving": "Validerar och sparar…"
   ,"railwaygps.station.select": "Markera två motsatta hörn i världen"
   ,"railwaygps.station.selection": "Zon: %s"

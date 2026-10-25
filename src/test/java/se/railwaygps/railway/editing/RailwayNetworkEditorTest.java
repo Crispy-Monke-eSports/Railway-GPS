@@ -83,6 +83,23 @@ class RailwayNetworkEditorTest {
 		assertEquals(null, updated.tracks().get("single").pairedTrackId());
 	}
 
+	@Test
+	void overlappingControlZoneRequiresExplicitAcknowledgementInTheSameRevision() throws Exception {
+		RailwayNetwork network = RailwayNetworkEditor.addControlPoint(RailwayNetwork.EMPTY,
+				"first", "First", ControlPoint.Kind.STATION, namedZone("zone-first", 0));
+		RailwayNetwork before = network;
+
+		assertThrows(Exception.class, () -> RailwayNetworkEditor.addControlPoint(before,
+				"second", "Second", ControlPoint.Kind.STATION, namedZone("zone-second", 0)));
+		RailwayNetwork acknowledged = RailwayNetworkEditor.addControlPoint(before,
+				"second", "Second", ControlPoint.Kind.STATION, namedZone("zone-second", 0), true);
+
+		assertEquals(1, acknowledged.acknowledgedZoneOverlaps().size());
+		assertTrue(se.railwaygps.railway.model.RailwayNetworkValidator.inspect(acknowledged).valid());
+		assertTrue(se.railwaygps.railway.model.RailwayNetworkValidator.inspect(acknowledged).warnings().stream()
+				.anyMatch(warning -> warning.contains("acknowledged")));
+	}
+
 	private static RailwayNetwork withControlPoints() throws Exception {
 		RailwayNetwork network = RailwayNetwork.EMPTY;
 		network = RailwayNetworkEditor.addControlPoint(network, "west", "West", ControlPoint.Kind.JUNCTION, zone(0));
@@ -98,6 +115,11 @@ class RailwayNetworkEditorTest {
 
 	private static Zone zone(int x) {
 		return new Zone("minecraft:overworld", List.of(new ZoneBox(point(x, 63, -1), point(x + 1, 66, 1))), 1);
+	}
+
+	private static Zone namedZone(String id, int x) {
+		return new Zone(id, "minecraft:overworld",
+				List.of(new ZoneBox(point(x, 63, -1), point(x + 1, 66, 1))), 1, 3);
 	}
 
 	private static TrackPoint point(int x, int y, int z) {

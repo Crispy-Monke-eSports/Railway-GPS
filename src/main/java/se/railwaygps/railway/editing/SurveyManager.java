@@ -19,6 +19,7 @@ import se.railwaygps.server.RailwayGpsServer;
 import se.railwaygps.railway.model.ControlPoint;
 import se.railwaygps.railway.model.RailwayNetwork;
 import se.railwaygps.railway.model.TraversalRef;
+import se.railwaygps.railway.model.ZoneOccupancyTracker;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -286,6 +287,7 @@ public final class SurveyManager {
 		private final long startedRevision;
 		private final SurveySampleValidator samples = new SurveySampleValidator();
 		private final List<Visit> visits = new ArrayList<>();
+		private final Map<String, ZoneOccupancyTracker> zoneTrackers = new HashMap<>();
 		private double previousX;
 		private double previousY;
 		private double previousZ;
@@ -300,6 +302,9 @@ public final class SurveyManager {
 			this.anchor = anchor;
 			this.startedAtTick = startedAtTick;
 			this.startedRevision = network.revision();
+			network.controlPoints().values().stream()
+					.filter(point -> dimension.equals(point.zone().dimension()))
+					.forEach(point -> zoneTrackers.put(point.id(), new ZoneOccupancyTracker()));
 			this.previousX = minecart.getX();
 			this.previousY = minecart.getY();
 			this.previousZ = minecart.getZ();
@@ -329,9 +334,15 @@ public final class SurveyManager {
 			TrackPoint point = new TrackPoint(rail.getX(), rail.getY(), rail.getZ());
 			samples.observeRail(point, shape);
 			if (samples.failure() != null) return;
-			ControlPoint current = controlPointAt(network, dimension, minecart.getX(), minecart.getY(), minecart.getZ());
-			if (current != null && !current.id().equals(visits.isEmpty() ? null : visits.getLast().controlPointId)) {
-				visits.add(new Visit(current.id(), Math.max(0, samples.points().size() - 1)));
+			for (ControlPoint candidate : network.controlPoints().values()) {
+				ZoneOccupancyTracker tracker = zoneTrackers.get(candidate.id());
+				if (tracker == null) continue;
+				ZoneOccupancyTracker.Event event = tracker.observe(candidate.zone(),
+						minecart.getX(), minecart.getY(), minecart.getZ());
+				if (event == ZoneOccupancyTracker.Event.ENTERED
+						&& !candidate.id().equals(visits.isEmpty() ? null : visits.getLast().controlPointId)) {
+					visits.add(new Visit(candidate.id(), Math.max(0, samples.points().size() - 1)));
+				}
 			}
 		}
 	}

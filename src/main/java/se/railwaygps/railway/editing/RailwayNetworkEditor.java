@@ -29,13 +29,29 @@ public final class RailwayNetworkEditor {
 	public static RailwayNetwork addControlPoint(
 			RailwayNetwork network, String id, String name, ControlPoint.Kind kind, Zone zone)
 			throws NetworkValidationException {
+		return addControlPoint(network, id, name, kind, zone, false);
+	}
+
+	public static RailwayNetwork addControlPoint(
+			RailwayNetwork network, String id, String name, ControlPoint.Kind kind, Zone zone,
+			boolean acknowledgeOverlaps) throws NetworkValidationException {
 		requireNewId(network.controlPoints(), id, "control point");
 		if (name == null || name.isBlank()) {
 			throw new IllegalArgumentException("Control point name is required");
 		}
 		Map<String, ControlPoint> points = new LinkedHashMap<>(network.controlPoints());
 		points.put(id, new ControlPoint(id, name.trim(), kind, zone, Map.of()));
-		return validated(copy(network, points, network.sections(), network.tracks(), network.transitions()));
+		RailwayNetwork candidate = copy(network, points, network.sections(), network.tracks(), network.transitions());
+		if (acknowledgeOverlaps) {
+			Set<String> acknowledgements = new LinkedHashSet<>(candidate.acknowledgedZoneOverlaps());
+			ZoneOverlapAnalyzer.find(candidate).stream()
+					.filter(overlap -> overlap.firstControlPointId().equals(id) || overlap.secondControlPointId().equals(id))
+					.map(ZoneOverlapAnalyzer.Overlap::key).forEach(acknowledgements::add);
+			candidate = new RailwayNetwork(candidate.revision(), candidate.controlPoints(), candidate.sections(),
+					candidate.tracks(), candidate.transitions(), candidate.labels(), candidate.rejectedTrackPairings(),
+					acknowledgements);
+		}
+		return validated(candidate);
 	}
 
 	public static RailwayNetwork addRecordedTrack(
@@ -136,6 +152,21 @@ public final class RailwayNetworkEditor {
 		return validated(copy(network, network.controlPoints(), network.sections(), tracks, network.transitions()));
 	}
 
+	public static RailwayNetwork acknowledgeZoneOverlap(RailwayNetwork network, String firstId, String secondId)
+			throws NetworkValidationException {
+		ZoneOverlapAnalyzer.Overlap overlap = ZoneOverlapAnalyzer.find(network).stream()
+				.filter(candidate -> candidate.firstControlPointId().equals(firstId)
+						&& candidate.secondControlPointId().equals(secondId)
+						|| candidate.firstControlPointId().equals(secondId)
+						&& candidate.secondControlPointId().equals(firstId))
+				.findFirst().orElseThrow(() -> new IllegalArgumentException("The selected control-point zones do not overlap"));
+		Set<String> acknowledgements = new LinkedHashSet<>(network.acknowledgedZoneOverlaps());
+		acknowledgements.add(overlap.key());
+		RailwayNetwork updated = new RailwayNetwork(network.revision() + 1, network.controlPoints(), network.sections(),
+				network.tracks(), network.transitions(), network.labels(), network.rejectedTrackPairings(), acknowledgements);
+		return validated(updated);
+	}
+
 	public static RailwayNetwork addTransition(
 			RailwayNetwork network, String id, String controlPointId, TraversalRef incoming,
 			TraversalRef outgoing, String instruction) throws NetworkValidationException {
@@ -157,7 +188,7 @@ public final class RailwayNetworkEditor {
 			Map<String, TrackSection> sections, Map<String, PhysicalTrack> tracks,
 			Map<String, TrackTransition> transitions, Set<String> rejectedTrackPairings) {
 		return new RailwayNetwork(network.revision() + 1, controlPoints, sections, tracks, transitions,
-				network.labels(), rejectedTrackPairings);
+				network.labels(), rejectedTrackPairings, network.acknowledgedZoneOverlaps());
 	}
 
 	private static RailwayNetwork validated(RailwayNetwork network) throws NetworkValidationException {
