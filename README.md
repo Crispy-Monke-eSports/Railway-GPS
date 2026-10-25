@@ -19,7 +19,7 @@ The mod currently provides:
 - A minecart HUD with automatic straight/left/right/turn-back guidance and custom instructions.
 - Optional JourneyMap overlays for control zones, physical tracks, names and the active route.
 - A searchable player UI on `R` for choosing destinations, starting/stopping navigation and viewing status.
-- An operator-only admin button that opens the in-world bounding-box editor with a live outline and action HUD.
+- A server-authorized **Tools** view for inspection, naming, surveys and administration.
 
 There is one network implementation and one authoritative data file:
 
@@ -32,7 +32,17 @@ migrate data from earlier prototypes.
 
 ## Registering the railway
 
-All editing commands require operator permissions.
+With LuckPerms or a compatible Fabric permissions provider, the four independent nodes are:
+
+- `railwaygps.inspect` — read-only technical inspection and validation.
+- `railwaygps.name` — track-label selection and publication only.
+- `railwaygps.survey` — record and atomically publish validated minecart surveys.
+- `railwaygps.admin` — physical topology, transitions, pair approval and destructive/publishing tools.
+
+Provider grants are authoritative, including for operators. Without a provider, operators receive all four
+tool capabilities and non-operators retain normal navigation only. Press `R` for navigation and choose
+**Tools** to see only the capabilities the server currently grants. The `/rgps` commands are optional
+alternatives governed by the same server checks.
 
 ### Control-point bounding boxes
 

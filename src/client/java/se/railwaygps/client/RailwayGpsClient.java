@@ -14,6 +14,7 @@ import se.railwaygps.client.navigation.ClientNavigator;
 import se.railwaygps.client.ui.RailwayGpsUi;
 import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.network.NetworkSnapshotDigest;
+import se.railwaygps.network.PermissionSnapshotPayload;
 import se.railwaygps.network.RailwayNetworkPayload;
 import se.railwaygps.network.SurveyStatusPayload;
 import se.railwaygps.network.StationCreationResultPayload;
@@ -52,6 +53,8 @@ public final class RailwayGpsClient implements ClientModInitializer {
 				(payload, context) -> ClientStationCreationResult.replace(payload));
 		ClientPlayNetworking.registerGlobalReceiver(TransitionToggleResultPayload.TYPE,
 				(payload, context) -> ClientTransitionToggleResult.replace(payload));
+		ClientPlayNetworking.registerGlobalReceiver(PermissionSnapshotPayload.TYPE,
+				(payload, context) -> ClientPermissions.replace(payload));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			RailwayEditor.clear();
 			ClientNavigator.stop();
@@ -59,6 +62,7 @@ public final class RailwayGpsClient implements ClientModInitializer {
 			ClientSurveyStatus.clear();
 			ClientStationCreationResult.clear();
 			ClientTransitionToggleResult.clear();
+			ClientPermissions.clear();
 		});
 	}
 }

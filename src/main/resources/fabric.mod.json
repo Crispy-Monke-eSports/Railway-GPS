@@ -27,6 +27,8 @@
     "fabric-api": "*"
   },
   "suggests": {
-    "journeymap": "*"
+    "journeymap": "*",
+    "fabric-permissions-api-v0": "*",
+    "luckperms": "*"
   }
 }

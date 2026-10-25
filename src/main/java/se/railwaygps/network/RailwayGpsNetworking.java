@@ -5,14 +5,21 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.permissions.Permissions;
+import se.railwaygps.permission.RailwayCapabilities;
+import se.railwaygps.permission.RailwayPermission;
+import se.railwaygps.permission.RailwayPermissions;
 import se.railwaygps.railway.editing.StationCreator;
 import se.railwaygps.railway.editing.RailwayNetworkEditor;
 import se.railwaygps.server.RailwayGpsServer;
 import se.railwaygps.storage.RailwayNetworkJsonCodec;
 import se.railwaygps.railway.model.RailwayNetwork;
 
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 public final class RailwayGpsNetworking {
+	private static final Map<UUID, RailwayCapabilities> LAST_CAPABILITIES = new HashMap<>();
 	private RailwayGpsNetworking() {
 	}
 
@@ -22,12 +29,13 @@ public final class RailwayGpsNetworking {
 		PayloadTypeRegistry.clientboundPlay().register(SurveyStatusPayload.TYPE, SurveyStatusPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(StationCreationResultPayload.TYPE, StationCreationResultPayload.CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(TransitionToggleResultPayload.TYPE, TransitionToggleResultPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(PermissionSnapshotPayload.TYPE, PermissionSnapshotPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(CreateStationPayload.TYPE, CreateStationPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(TransitionTogglePayload.TYPE, TransitionTogglePayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(TransitionInstructionPayload.TYPE, TransitionInstructionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(CreateStationPayload.TYPE, (payload, context) -> {
 			ServerPlayer player = context.player();
-			if (!player.createCommandSourceStack().permissions().hasPermission(Permissions.COMMANDS_MODERATOR)) {
+			if (!RailwayPermissions.has(player, RailwayPermission.ADMIN)) {
 				sendStationResult(player, false, "railwaygps.station.error", "You are not allowed to create stations");
 				return;
 			}
@@ -41,7 +49,7 @@ public final class RailwayGpsNetworking {
 		});
 		ServerPlayNetworking.registerGlobalReceiver(TransitionTogglePayload.TYPE, (payload, context) -> {
 			ServerPlayer player = context.player();
-			if (!player.createCommandSourceStack().permissions().hasPermission(Permissions.COMMANDS_MODERATOR)) {
+			if (!RailwayPermissions.has(player, RailwayPermission.ADMIN)) {
 				sendTransitionResult(player, false, "You are not allowed to edit redlight transitions");
 				return;
 			}
@@ -56,7 +64,7 @@ public final class RailwayGpsNetworking {
 		});
 		ServerPlayNetworking.registerGlobalReceiver(TransitionInstructionPayload.TYPE, (payload, context) -> {
 			ServerPlayer player = context.player();
-			if (!player.createCommandSourceStack().permissions().hasPermission(Permissions.COMMANDS_MODERATOR)) {
+			if (!RailwayPermissions.has(player, RailwayPermission.ADMIN)) {
 				sendTransitionResult(player, false, "You are not allowed to edit redlight instructions");
 				return;
 			}
@@ -72,7 +80,25 @@ public final class RailwayGpsNetworking {
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			RailwayGpsServer state = RailwayGpsServer.get(server);
 			send(handler.getPlayer(), state.network());
+			sendCapabilities(handler.getPlayer(), true);
 		});
+		ServerPlayConnectionEvents.DISCONNECT.register((handler, server) ->
+				LAST_CAPABILITIES.remove(handler.getPlayer().getUUID()));
+	}
+
+	/** Refreshes UI visibility without trusting it for authorization. Called once per second. */
+	public static void refreshCapabilities(MinecraftServer server) {
+		if (server.getTickCount() % 20 != 0) return;
+		for (ServerPlayer player : server.getPlayerList().getPlayers()) sendCapabilities(player, false);
+	}
+
+	private static void sendCapabilities(ServerPlayer player, boolean force) {
+		RailwayCapabilities capabilities = RailwayPermissions.capabilities(player);
+		if (!force && capabilities.equals(LAST_CAPABILITIES.get(player.getUUID()))) return;
+		LAST_CAPABILITIES.put(player.getUUID(), capabilities);
+		if (ServerPlayNetworking.canSend(player, PermissionSnapshotPayload.TYPE)) {
+			ServerPlayNetworking.send(player, PermissionSnapshotPayload.from(capabilities));
+		}
 	}
 
 	private static void sendStationResult(ServerPlayer player, boolean success, String key, String detail) {

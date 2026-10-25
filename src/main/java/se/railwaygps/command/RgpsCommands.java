@@ -14,7 +14,8 @@ import net.minecraft.commands.arguments.coordinates.BlockPosArgument;
 import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.server.permissions.Permissions;
+import se.railwaygps.permission.RailwayPermission;
+import se.railwaygps.permission.RailwayPermissions;
 import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.recording.RecordingException;
 import se.railwaygps.server.RailwayGpsServer;
@@ -42,26 +43,26 @@ public final class RgpsCommands {
 	}
 
 	private static LiteralArgumentBuilder<CommandSourceStack> primaryCommand() {
-		var root = Commands.literal("rgps")
-				.requires(source -> source.permissions().hasPermission(Permissions.COMMANDS_MODERATOR));
-		root.then(Commands.literal("network").then(Commands.literal("list").executes(RgpsCommands::listNetwork)));
-		root.then(Commands.literal("zone")
+		var root = Commands.literal("rgps");
+		root.then(requires("network", RailwayPermission.INSPECT)
+				.then(Commands.literal("list").executes(RgpsCommands::listNetwork)));
+		root.then(requires("zone", RailwayPermission.ADMIN)
 				.then(Commands.literal("first").executes(RgpsCommands::markZoneFirst)
 						.then(Commands.argument("position", BlockPosArgument.blockPos()).executes(RgpsCommands::markZoneFirst)))
 				.then(Commands.literal("second").executes(RgpsCommands::markZoneSecond)
 						.then(Commands.argument("position", BlockPosArgument.blockPos()).executes(RgpsCommands::markZoneSecond)))
 				.then(Commands.literal("cancel").executes(RgpsCommands::cancelZoneSelection)));
-		root.then(Commands.literal("control").then(Commands.literal("create")
+		root.then(requires("control", RailwayPermission.ADMIN).then(Commands.literal("create")
 				.then(Commands.argument("id", StringArgumentType.word())
 						.then(Commands.argument("kind", StringArgumentType.word())
 								.then(Commands.argument("name", StringArgumentType.greedyString())
 										.executes(RgpsCommands::createControlPoint))))));
-		root.then(Commands.literal("survey")
+		root.then(requires("survey", RailwayPermission.SURVEY)
 				.then(Commands.literal("start").executes(RgpsCommands::startSurvey))
 				.then(Commands.literal("finish").executes(RgpsCommands::finishSurvey))
 				.then(Commands.literal("status").executes(RgpsCommands::surveyStatus))
 				.then(Commands.literal("cancel").executes(RgpsCommands::cancelSurvey)));
-		root.then(Commands.literal("track").then(Commands.literal("pair")
+		root.then(requires("track", RailwayPermission.ADMIN).then(Commands.literal("pair")
 				.then(Commands.argument("first", StringArgumentType.word())
 						.then(Commands.argument("second", StringArgumentType.word())
 								.executes(RgpsCommands::pairTracks))))
@@ -73,7 +74,7 @@ public final class RgpsCommands {
 						.then(Commands.argument("track", StringArgumentType.word())
 								.then(Commands.argument("direction", StringArgumentType.word())
 										.executes(RgpsCommands::allowTrackDirection)))));
-		root.then(Commands.literal("transition").then(Commands.literal("add")
+		root.then(requires("transition", RailwayPermission.ADMIN).then(Commands.literal("add")
 				.then(Commands.argument("id", StringArgumentType.word())
 						.then(Commands.argument("control", StringArgumentType.word())
 								.then(Commands.argument("incoming", StringArgumentType.word())
@@ -84,7 +85,7 @@ public final class RgpsCommands {
 																.then(Commands.argument("instruction", StringArgumentType.greedyString())
 																		.executes(context -> addTransition(context,
 																				StringArgumentType.getString(context, "instruction"))))))))))));
-		root.then(Commands.literal("label")
+		root.then(requires("label", RailwayPermission.NAME)
 				.then(Commands.literal("point")
 						.then(Commands.literal("start").executes(RgpsCommands::markLabelStart))
 						.then(Commands.literal("end").executes(RgpsCommands::markLabelEnd)))
@@ -97,8 +98,12 @@ public final class RgpsCommands {
 												.then(Commands.argument("include_paired", BoolArgumentType.bool())
 														.then(Commands.argument("name", StringArgumentType.greedyString())
 																.executes(RgpsCommands::createLabel))))))));
-		root.then(Commands.literal("reload").executes(RgpsCommands::reload));
+		root.then(requires("reload", RailwayPermission.ADMIN).executes(RgpsCommands::reload));
 		return root;
+	}
+
+	private static LiteralArgumentBuilder<CommandSourceStack> requires(String literal, RailwayPermission permission) {
+		return Commands.literal(literal).requires(source -> RailwayPermissions.has(source, permission));
 	}
 
 	private static int listNetwork(CommandContext<CommandSourceStack> context) {

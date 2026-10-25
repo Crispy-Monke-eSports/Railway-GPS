@@ -22,7 +22,7 @@ public final class ValidationScreen extends Screen {
 
 	@Override
 	protected void init() {
-		if (!RailwayGpsUi.canAdminister(minecraft)) {
+		if (!RailwayGpsUi.canInspect(minecraft)) {
 			minecraft.gui.setScreen(new NavigationScreen());
 			return;
 		}
@@ -41,7 +41,7 @@ public final class ValidationScreen extends Screen {
 							? "railwaygps.validation.hide_overlay" : "railwaygps.validation.show_overlay"));
 				}).bounds(left + 16, height - 42, 160, 20).build());
 		addRenderableWidget(Button.builder(Component.translatable("gui.back"),
-				button -> minecraft.gui.setScreen(new AdminScreen()))
+				button -> minecraft.gui.setScreen(new ToolsScreen()))
 				.bounds(left + panelWidth - 96, height - 42, 80, 20).build());
 	}
 

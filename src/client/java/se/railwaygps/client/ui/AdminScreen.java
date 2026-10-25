@@ -32,17 +32,11 @@ public final class AdminScreen extends Screen {
 		addRenderableWidget(Button.builder(Component.translatable("railwaygps.admin.directions"),
 				button -> minecraft.gui.setScreen(new TrackDirectionScreen()))
 				.bounds(left, y + 56, width, 24).build());
-		addRenderableWidget(Button.builder(Component.translatable("railwaygps.admin.survey"),
-				button -> minecraft.gui.setScreen(new SurveyScreen()))
-				.bounds(left, y + 84, width, 24).build());
 		addRenderableWidget(Button.builder(Component.translatable("railwaygps.admin.redlights"),
 				button -> minecraft.gui.setScreen(new RedlightScreen()))
-				.bounds(left, y + 112, width, 24).build());
-		addRenderableWidget(Button.builder(Component.translatable("railwaygps.admin.validation"),
-				button -> minecraft.gui.setScreen(new ValidationScreen()))
-				.bounds(left, y + 140, width, 24).build());
+				.bounds(left, y + 84, width, 24).build());
 		addRenderableWidget(Button.builder(Component.translatable("gui.back"),
-				button -> minecraft.gui.setScreen(new NavigationScreen()))
+				button -> minecraft.gui.setScreen(new ToolsScreen()))
 				.bounds(left, this.height - 42, width, 20).build());
 	}
 

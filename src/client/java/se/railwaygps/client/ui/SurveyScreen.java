@@ -19,7 +19,7 @@ public final class SurveyScreen extends Screen {
 
 	@Override
 	protected void init() {
-		if (!RailwayGpsUi.canAdminister(minecraft)) {
+		if (!RailwayGpsUi.canSurvey(minecraft)) {
 			minecraft.gui.setScreen(new NavigationScreen());
 			return;
 		}
@@ -32,7 +32,7 @@ public final class SurveyScreen extends Screen {
 		cancel = addRenderableWidget(Button.builder(Component.translatable("railwaygps.survey.cancel"),
 				button -> command("rgps survey cancel")).bounds(left + 260, height - 70, 116, 20).build());
 		addRenderableWidget(Button.builder(Component.translatable("gui.back"),
-				button -> minecraft.gui.setScreen(new AdminScreen()))
+				button -> minecraft.gui.setScreen(new ToolsScreen()))
 				.bounds(left + panelWidth - 96, height - 38, 80, 20).build());
 		updateButtons();
 	}

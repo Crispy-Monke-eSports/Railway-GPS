@@ -64,6 +64,13 @@ public final class RailwayWorldOverlay {
 		return enabled;
 	}
 
+	public static void disableInspector() {
+		enabled = false;
+		selectionPreview = null;
+		highlightedFirstTrack = null;
+		highlightedSecondTrack = null;
+	}
+
 	public static void setSelectionPreview(ZoneBox preview) {
 		selectionPreview = preview;
 	}

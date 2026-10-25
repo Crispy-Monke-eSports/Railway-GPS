@@ -65,8 +65,8 @@ public final class NavigationScreen extends Screen {
 		}
 
 		int bottom = height - 42;
-		boolean administrator = RailwayGpsUi.canAdminister(minecraft);
-		int buttonCount = administrator ? 5 : 4;
+		boolean tools = RailwayGpsUi.hasTools(minecraft);
+		int buttonCount = tools ? 5 : 4;
 		int gap = 6;
 		int buttonWidth = (panelWidth - 32 - gap * (buttonCount - 1)) / buttonCount;
 		int buttonX = left + 16;
@@ -86,9 +86,9 @@ public final class NavigationScreen extends Screen {
 		}).bounds(buttonX, bottom, buttonWidth, 20).build());
 		buttonX += buttonWidth + gap;
 
-		if (administrator) {
-			addRenderableWidget(Button.builder(Component.translatable("railwaygps.ui.admin"), button -> {
-				minecraft.gui.setScreen(new AdminScreen());
+		if (tools) {
+			addRenderableWidget(Button.builder(Component.translatable("railwaygps.ui.tools"), button -> {
+				minecraft.gui.setScreen(new ToolsScreen());
 			}).bounds(buttonX, bottom, buttonWidth, 20).build());
 			buttonX += buttonWidth + gap;
 		}

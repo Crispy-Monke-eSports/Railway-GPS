@@ -5,6 +5,7 @@ import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallba
 import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.minecraft.network.chat.Component;
 import se.railwaygps.client.ClientRailwayNetwork;
+import se.railwaygps.client.ClientPermissions;
 import se.railwaygps.client.inspector.RailwayWorldOverlay;
 
 import java.util.Comparator;
@@ -15,6 +16,7 @@ public final class InspectorCommands {
 	public static void register() {
 		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> dispatcher.register(
 				ClientCommands.literal("rgpsinspect")
+						.requires(source -> ClientPermissions.get().inspect())
 						.then(ClientCommands.literal("toggle").executes(context -> {
 							boolean enabled = RailwayWorldOverlay.toggle();
 							context.getSource().sendFeedback(Component.translatable(

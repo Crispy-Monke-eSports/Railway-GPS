@@ -7,6 +7,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 import se.railwaygps.RailwayGps;
+import se.railwaygps.client.ClientPermissions;
 import se.railwaygps.client.editing.RailwayEditor;
 
 /** Owns the player-facing entry point for navigation and administration. */
@@ -33,7 +34,22 @@ public final class RailwayGpsUi {
 	}
 
 	public static boolean canAdminister(Minecraft client) {
-		return client.getConnection() != null
-				&& client.getConnection().getCommands().getRoot().getChild("rgps") != null;
+		return client.getConnection() != null && ClientPermissions.get().admin();
+	}
+
+	public static boolean canInspect(Minecraft client) {
+		return client.getConnection() != null && ClientPermissions.get().inspect();
+	}
+
+	public static boolean canName(Minecraft client) {
+		return client.getConnection() != null && ClientPermissions.get().name();
+	}
+
+	public static boolean canSurvey(Minecraft client) {
+		return client.getConnection() != null && ClientPermissions.get().survey();
+	}
+
+	public static boolean hasTools(Minecraft client) {
+		return client.getConnection() != null && ClientPermissions.anyTools();
 	}
 }
