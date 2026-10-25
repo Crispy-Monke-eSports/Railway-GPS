@@ -3,6 +3,7 @@ package se.railwaygps.storage;
 import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import org.junit.jupiter.api.Test;
 import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.model.TrackPoint;
@@ -72,7 +73,7 @@ class RailwayNetworkJsonCodecTest {
 
 		JsonObject badBoxes = asJson(network());
 		zone(badBoxes, "central").getAsJsonArray("boxes").get(0).getAsJsonObject()
-				.getAsJsonObject("min").addProperty("x", 99);
+				.getAsJsonArray("min").set(0, new JsonPrimitive(99));
 		assertInvalid(badBoxes);
 	}
 
