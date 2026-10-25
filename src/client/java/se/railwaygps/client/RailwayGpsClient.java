@@ -15,6 +15,7 @@ import se.railwaygps.client.ui.RailwayGpsUi;
 import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.network.NetworkSnapshotDigest;
 import se.railwaygps.network.RailwayNetworkPayload;
+import se.railwaygps.network.SurveyStatusPayload;
 import se.railwaygps.storage.RailwayNetworkJsonCodec;
 import se.railwaygps.railway.model.RailwayNetwork;
 
@@ -43,10 +44,13 @@ public final class RailwayGpsClient implements ClientModInitializer {
 				RailwayGps.LOGGER.error("Rejected invalid Railway GPS snapshot; keeping the previous network", exception);
 			}
 		});
+		ClientPlayNetworking.registerGlobalReceiver(SurveyStatusPayload.TYPE,
+				(payload, context) -> ClientSurveyStatus.replace(payload));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			RailwayEditor.clear();
 			ClientNavigator.stop();
 			ClientRailwayNetwork.clear();
+			ClientSurveyStatus.clear();
 		});
 	}
 }

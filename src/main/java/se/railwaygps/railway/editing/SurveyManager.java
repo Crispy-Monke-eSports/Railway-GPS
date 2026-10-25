@@ -7,10 +7,14 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.level.block.BaseRailBlock;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.RailShape;
 import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.model.TrackGeometry;
 import se.railwaygps.model.TrackPoint;
 import se.railwaygps.recording.RecordingException;
+import se.railwaygps.network.RailwayGpsNetworking;
+import se.railwaygps.network.SurveyStatusPayload;
 import se.railwaygps.server.RailwayGpsServer;
 import se.railwaygps.railway.model.ControlPoint;
 import se.railwaygps.railway.model.RailwayNetwork;
@@ -45,13 +49,15 @@ public final class SurveyManager {
 		}
 		ControlPoint from = controlPointAt(network, dimension, minecart.getX(), minecart.getY(), minecart.getZ());
 		if (from == null) throw new RecordingException("The minecart must be inside a control-point zone");
-		sessions.put(player.getUUID(), new Session(player.getUUID(), minecart, dimension, from.id(), tick, network));
+		Session session = new Session(player.getUUID(), minecart, dimension, from.id(), tick, network);
+		sessions.put(player.getUUID(), session);
+		publish(player, session, tick, "recording", "railwaygps.survey.status.recording", "");
 	}
 
 	public Status status(ServerPlayer player, long tick) throws RecordingException {
 		Session session = requireSession(player);
 		return new Status(session.visits.getFirst().controlPointId, session.visits.getLast().controlPointId,
-				session.visits.size(), session.points.size(),
+				session.visits.size(), session.samples.points().size(),
 				session.distance, tick - session.startedAtTick);
 	}
 
@@ -65,14 +71,16 @@ public final class SurveyManager {
 			throw exception;
 		}
 		session.sample(minecart, state.network());
-		if (session.jumped) {
-			cancelInvalid(player, "Survey cancelled because the minecart position jumped unexpectedly");
+		if (session.samples.failure() != null) {
+			cancelInvalid(player, failureMessage(session.samples.failure()));
 			throw new RecordingException("Survey was cancelled without saving");
 		}
 		ControlPoint destination = controlPointAt(state.network(), session.dimension,
 				minecart.getX(), minecart.getY(), minecart.getZ());
 		if (destination == null || session.visits.size() < 2
 				|| !destination.id().equals(session.visits.getLast().controlPointId)) {
+			publish(player, session, player.level().getServer().getTickCount(), "recording",
+					"railwaygps.survey.status.finish_zone", "");
 			throw new RecordingException("Finish inside a different control-point zone");
 		}
 		try {
@@ -84,8 +92,9 @@ public final class SurveyManager {
 				Visit from = session.visits.get(index - 1);
 				Visit to = session.visits.get(index);
 				if (from.controlPointId.equals(to.controlPointId)) continue;
-				List<TrackPoint> raw = new ArrayList<>(session.points.subList(from.pointIndex,
-						Math.min(session.points.size(), to.pointIndex + 1)));
+				List<TrackPoint> points = session.samples.points();
+				List<TrackPoint> raw = new ArrayList<>(points.subList(from.pointIndex,
+						Math.min(points.size(), to.pointIndex + 1)));
 				List<TrackPoint> simplified = TrackGeometry.simplify(raw);
 				RailwayNetworkEditor.AddedTrack added = RailwayNetworkEditor.addRecordedTrack(updated,
 						from.controlPointId, to.controlPointId, session.dimension, simplified);
@@ -106,9 +115,13 @@ public final class SurveyManager {
 			if (trackIds.isEmpty()) throw new IllegalArgumentException("No complete track section was recorded");
 			state.save(updated);
 			sessions.remove(player.getUUID());
-			return new FinishedSurvey(List.copyOf(trackIds), session.points.size(), simplifiedPoints, length,
+			publish(player, session, player.level().getServer().getTickCount(), "finished",
+					"railwaygps.survey.status.finished", "");
+			return new FinishedSurvey(List.copyOf(trackIds), session.samples.points().size(), simplifiedPoints, length,
 					List.copyOf(session.visits.stream().map(Visit::controlPointId).toList()));
 		} catch (IOException | NetworkValidationException | IllegalArgumentException exception) {
+			publish(player, session, player.level().getServer().getTickCount(), "recording",
+					"railwaygps.survey.status.save_failed", exception.getMessage());
 			throw new RecordingException("Could not save physical track: " + exception.getMessage(), exception);
 		}
 	}
@@ -117,6 +130,8 @@ public final class SurveyManager {
 		if (sessions.remove(player.getUUID()) == null) {
 			throw new RecordingException("You have no active survey");
 		}
+		RailwayGpsNetworking.sendSurveyStatus(player, new SurveyStatusPayload("idle",
+				"railwaygps.survey.status.cancelled", "", 0, 0, 0, 0));
 	}
 
 	public void tick(MinecraftServer server) {
@@ -132,10 +147,26 @@ public final class SurveyManager {
 				continue;
 			}
 			session.sample((AbstractMinecart) player.getVehicle(), state.network());
-			if (session.jumped) {
-				cancelInvalid(player, "Survey cancelled because the minecart position jumped unexpectedly");
+			if (session.samples.failure() != null) {
+				cancelInvalid(player, failureMessage(session.samples.failure()));
+			} else if ((server.getTickCount() - session.startedAtTick) % 10 == 0) {
+				publish(player, session, server.getTickCount(), "recording",
+						"railwaygps.survey.status.recording", "");
 			}
 		}
+	}
+
+	private static String failureMessage(SurveySampleValidator.Failure failure) {
+		return switch (failure.reason()) {
+			case POSITION_JUMP -> "Survey cancelled because the minecart position jumped unexpectedly";
+			case RAIL_LOST -> "Survey cancelled because the minecart was no longer on a rail";
+			case DISCONNECTED_RAILS -> "Survey cancelled because the rail path is discontinuous between "
+					+ format(failure.previous()) + " and " + format(failure.current());
+		};
+	}
+
+	private static String format(TrackPoint point) {
+		return point == null ? "an unknown position" : point.x() + ", " + point.y() + ", " + point.z();
 	}
 
 	private Session requireSession(ServerPlayer player) throws RecordingException {
@@ -165,8 +196,30 @@ public final class SurveyManager {
 	}
 
 	private void cancelInvalid(ServerPlayer player, String message) {
-		sessions.remove(player.getUUID());
+		Session session = sessions.remove(player.getUUID());
+		String key = "railwaygps.survey.status.invalid";
+		String detail = message;
+		if (session != null && session.samples.failure() != null) {
+			SurveySampleValidator.Failure failure = session.samples.failure();
+			key = switch (failure.reason()) {
+				case POSITION_JUMP -> "railwaygps.survey.status.jump";
+				case RAIL_LOST -> "railwaygps.survey.status.rail_lost";
+				case DISCONNECTED_RAILS -> "railwaygps.survey.status.disconnected";
+			};
+			detail = failure.reason() == SurveySampleValidator.Reason.DISCONNECTED_RAILS
+					? format(failure.previous()) + " → " + format(failure.current()) : "";
+		}
+		RailwayGpsNetworking.sendSurveyStatus(player, new SurveyStatusPayload("error", key, detail,
+				session == null ? 0 : session.samples.points().size(), session == null ? 0 : session.visits.size(),
+				session == null ? 0 : session.distance, 0));
 		player.sendSystemMessage(Component.literal(message + "; no physical track was saved"));
+	}
+
+	private static void publish(ServerPlayer player, Session session, long tick, String status,
+			String messageKey, String detail) {
+		RailwayGpsNetworking.sendSurveyStatus(player, new SurveyStatusPayload(status, messageKey, detail,
+				session.samples.points().size(), session.visits.size(), session.distance,
+				Math.max(0, tick - session.startedAtTick)));
 	}
 
 	private static String dimension(ServerPlayer player) {
@@ -185,13 +238,12 @@ public final class SurveyManager {
 		private final UUID minecartId;
 		private final String dimension;
 		private final long startedAtTick;
-		private final List<TrackPoint> points = new ArrayList<>();
+		private final SurveySampleValidator samples = new SurveySampleValidator();
 		private final List<Visit> visits = new ArrayList<>();
 		private double previousX;
 		private double previousY;
 		private double previousZ;
 		private double distance;
-		private boolean jumped;
 
 		private Session(UUID playerId, AbstractMinecart minecart, String dimension, String fromId,
 				long startedAtTick, RailwayNetwork network) {
@@ -212,18 +264,25 @@ public final class SurveyManager {
 			double dz = minecart.getZ() - previousZ;
 			double movement = Math.sqrt(dx * dx + dy * dy + dz * dz);
 			if (movement <= MAX_MOVEMENT_PER_TICK) distance += movement;
-			else jumped = true;
+			else samples.observeTeleport();
 			previousX = minecart.getX();
 			previousY = minecart.getY();
 			previousZ = minecart.getZ();
 
 			BlockPos rail = minecart.getCurrentBlockPosOrRailBelow();
-			if (!BaseRailBlock.isRail(minecart.level(), rail)) return;
+			if (!BaseRailBlock.isRail(minecart.level(), rail)) {
+				samples.observeMissingRail();
+				return;
+			}
+			BlockState railState = minecart.level().getBlockState(rail);
+			BaseRailBlock railBlock = (BaseRailBlock) railState.getBlock();
+			RailShape shape = railState.getValue(railBlock.getShapeProperty());
 			TrackPoint point = new TrackPoint(rail.getX(), rail.getY(), rail.getZ());
-			if (points.isEmpty() || !points.getLast().equals(point)) points.add(point);
+			samples.observeRail(point, shape);
+			if (samples.failure() != null) return;
 			ControlPoint current = controlPointAt(network, dimension, minecart.getX(), minecart.getY(), minecart.getZ());
 			if (current != null && !current.id().equals(visits.isEmpty() ? null : visits.getLast().controlPointId)) {
-				visits.add(new Visit(current.id(), Math.max(0, points.size() - 1)));
+				visits.add(new Visit(current.id(), Math.max(0, samples.points().size() - 1)));
 			}
 		}
 	}

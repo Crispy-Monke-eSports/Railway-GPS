@@ -16,10 +16,17 @@ public final class RailwayGpsNetworking {
 	public static void register() {
 		PayloadTypeRegistry.clientboundPlay().registerLarge(
 				RailwayNetworkPayload.TYPE, RailwayNetworkPayload.CODEC, RailwayNetworkPayload.MAX_PAYLOAD_BYTES);
+		PayloadTypeRegistry.clientboundPlay().register(SurveyStatusPayload.TYPE, SurveyStatusPayload.CODEC);
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			RailwayGpsServer state = RailwayGpsServer.get(server);
 			send(handler.getPlayer(), state.network());
 		});
+	}
+
+	public static void sendSurveyStatus(ServerPlayer player, SurveyStatusPayload payload) {
+		if (ServerPlayNetworking.canSend(player, SurveyStatusPayload.TYPE)) {
+			ServerPlayNetworking.send(player, payload);
+		}
 	}
 
 	public static void broadcast(MinecraftServer server, RailwayNetwork network) {
