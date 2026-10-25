@@ -354,7 +354,7 @@ Flera boxar kan läggas till samma zon. JourneyMap eller nätverksinspektören k
 
 ### 7.2 Skapa ett rödljus
 
-**Huvudflöde i UI:** öppna Railway GPS (`R` som standard), välj **Adminverktyg → Rödljus → Skapa**; genomför hela flödet med dialoger och visuellt tvåhörnsverktyg. **Kommandon behövs inte.**
+**Huvudflöde i UI:** öppna Railway GPS (`R` som standard), välj **Verktyg → Adminverktyg → Rödljus → Skapa**; genomför hela flödet med dialoger och visuellt tvåhörnsverktyg. **Kommandon behövs inte.**
 
 Arbetsflödet är:
 
@@ -376,7 +376,7 @@ Arbetsflödet är:
 
 ### 7.3 Skapa en station
 
-**Huvudflöde i UI:t:** öppna **Railway GPS → Adminverktyg → Skapa station**.
+**Huvudflöde i UI:t:** öppna **Railway GPS → Verktyg → Adminverktyg → Skapa station**.
 
 1. Markera **två motsatta hörn** så att den tänkta stationens räls täcks av en gemensam **3D-zon**.
 2. Ange ett **serverunikt stationsnamn**.
@@ -386,7 +386,7 @@ Validera att zonen är giltig och stationsnamnet unikt. **Flera rälslinjer i sa
 
 ### 7.4 Spela in fysisk räls
 
-En användare med **inspelningsbehörighet** får via **Railway GPS → Inspelning** använda UI-knapparna **Starta, Status, Avsluta/publicera och Avbryt**. Den får starta en lång survey **var som helst på verklig räls**, även mellan stationer och rödljus och utanför registrerade zoner. Start i en kontrollpunktszon krävs **inte**. Inspelningen får passera flera rödljus utan omstart. **Före publicering vid `finish` måste systemet säkert kunna koppla hela inspelningen till det registrerade nätet**, inklusive start-/slutanslutningar och rätt fysisk räls/riktning. Om det inte går ska hela inspelningen avvisas, utan att skapa påhittade kontrollpunkter.
+En användare med **inspelningsbehörighet** får via **Railway GPS → Verktyg → Inspelning** använda UI-knapparna **Starta, Status, Avsluta/publicera och Avbryt**. Den får starta en lång survey **var som helst på verklig räls**, även mellan stationer och rödljus och utanför registrerade zoner. Start i en kontrollpunktszon krävs **inte**. Inspelningen får passera flera rödljus utan omstart. **Före publicering vid `finish` måste systemet säkert kunna koppla hela inspelningen till det registrerade nätet**, inklusive start-/slutanslutningar och rätt fysisk räls/riktning. Om det inte går ska hela inspelningen avvisas, utan att skapa påhittade kontrollpunkter.
 
 **Följande kommandon är sekundära alternativ till UI-knapparna**, inte krav på operatörsbehörighet eller på kommandokunskap:
 
@@ -411,7 +411,7 @@ Parningen påverkar presentation och administration. Ruttberäkningen fortsätte
 
 ### 7.6 Namnge en känd sträcka mellan två punkter
 
-**Huvudflödet öppnas i Railway GPS → Namnge räls med namngivningsbehörighet.** Detta är det enda normala arbetsflödet för namngivning: en användare med namngivningsbehörighet markerar **sträckans början och slut på redan registrerad räls**, anger ett namn och bekräftar den visuella förhandsvisningen. Ingen separat minecart-färd eller namninspelningsfunktion krävs. Om den fysiska rälsen ännu inte är registrerad måste den först registreras med den separata vanliga survey-funktionen.
+**Huvudflödet öppnas i Railway GPS → Verktyg → Namnge räls med namngivningsbehörighet.** Detta är det enda normala arbetsflödet för namngivning: en användare med namngivningsbehörighet markerar **sträckans början och slut på redan registrerad räls**, anger ett namn och bekräftar den visuella förhandsvisningen. Ingen separat minecart-färd eller namninspelningsfunktion krävs. Om den fysiska rälsen ännu inte är registrerad måste den först registreras med den separata vanliga survey-funktionen.
 
 Arbetsflödet är:
 
@@ -661,7 +661,7 @@ När ett objekt väljs ska det kunna:
 destinationslista med **enbart stationer i spelarens aktuella dimension** (spårslut ingår som stationer; rödljus och stationer i andra dimensioner är aldrig valbara destinationer) samt tydliga knappar för att
 välja eller **byta destination under pågående resa** eller avsluta aktiv/väntande navigation. Tekniska ID:n behöver inte användas. **Destinationsval till fots sparas som väntande val; aktiv vägledning startar automatiskt först när minecarten verkligen börjar röra sig med säkert matchad registrerad räls och observerad färdriktning.** Vid all avstigning avbryts aktiv navigation, utan automatisk återupptagning.
 
-Behöriga användare öppnar **Verktyg** från navigeringssidan och ser där **endast de inspektions-, namn-, inspelnings- och administrationsverktyg** som deras separata serverrättigheter tillåter. En inspektör ska kunna söka, filtrera, markera och visa tekniska objekt; en namnredaktör ska kunna göra hela start/slut-förhandsvisa-bekräfta-flödet; en survey-användare ska ha start/status/finish/cancel; en administratör ska kunna skapa/redigera stationer och redlights, kontrollera portar/övergångar, godkänna spårpar och hantera säkra revisioner/import-/exportåtgärder **direkt i UI:t**. Administratörer får dessutom knappen **Adminverktyg**. Den öppnar redigeringsläget, som visar
+Behöriga användare öppnar **Verktyg** från navigeringssidan och ser där **endast de inspektions-, namn-, inspelnings- och administrationsverktyg** som deras separata serverrättigheter tillåter. En inspektör ska kunna söka, filtrera, markera och visa tekniska objekt; en namnredaktör ska kunna göra hela start/slut-förhandsvisa-bekräfta-flödet; en survey-användare ska ha start/status/finish/cancel; en administratör ska kunna skapa/redigera stationer och redlights, kontrollera portar/övergångar, godkänna spårpar och hantera säkra revisioner/import-/exportåtgärder **direkt i UI:t**. Administratörer ser **Adminverktyg som ett alternativ inne i Verktyg-vyn**, inte på navigeringens startsida. Den öppnar redigeringsläget, som visar
 aktuella musåtgärder och vald geometri i en HUD, i samma anda som verktygspaletten i SimpleBlueprints. För
 **stationsstoppzoner och rödljusens kontrollzoner** markerar administratören **första och andra hörnet** med tvåhörnsverktyget; en tredimensionell kontur visas
 omedelbart. **Hela stationszonen gäller för alla rälslinjer inom dess gränser**; admin behöver inte välja en enda räls, skapa plattformar eller dela upp stationen. `R` lämnar adminläget. Servern kontrollerar fortfarande behörighet och äger den sparade modellen.
@@ -792,7 +792,7 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 
 ### Fas 3 – Visuell zonredigering
 
-- **Adminverktyg nås via Railway GPS-UI:t**, där hela flödet för tvåhörnszoner, stationer och redlights har förhandsvisning, felhantering och sparande utan kommandon.
+- **Adminverktyg nås via `R` → `Verktyg` → `Adminverktyg`**, där hela flödet för tvåhörnszoner, stationer och redlights har förhandsvisning, felhantering och sparande utan kommandon.
 - Markering av två hörn i världen.
 - Flera boxar per zon.
 - Förhandsvisning, mått och överlappsvarningar.
