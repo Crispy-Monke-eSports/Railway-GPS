@@ -14,6 +14,8 @@ import se.railwaygps.network.TransitionToggleResultPayload;
 import se.railwaygps.railway.editing.RedlightPassageOptions;
 import se.railwaygps.railway.model.ControlPoint;
 import se.railwaygps.railway.model.RailwayNetwork;
+import se.railwaygps.railway.model.PhysicalTrack;
+import se.railwaygps.railway.model.RailwayNetworkValidator;
 import se.railwaygps.railway.model.TraversalRef;
 
 import java.util.Comparator;
@@ -79,7 +81,7 @@ public final class RedlightPassageScreen extends Screen {
 		instruction.setHint(Component.translatable("railwaygps.redlight.instruction_hint"));
 		addRenderableWidget(instruction);
 		create = addRenderableWidget(Button.builder(Component.translatable("railwaygps.redlight.create_passage"),
-				button -> save()).bounds(left + 16, height - 42, 190, 20).build());
+				button -> save()).bounds(left + 16, height - 42, Math.min(190, panelWidth - 132), 20).build());
 		addRenderableWidget(Button.builder(Component.translatable("gui.back"), button -> onClose())
 				.bounds(left + panelWidth - 96, height - 42, 80, 20).build());
 		seenResult = ClientTransitionToggleResult.revision();
@@ -122,10 +124,10 @@ public final class RedlightPassageScreen extends Screen {
 				controlIndex < 0 ? "—" : redlights.get(controlIndex).name(),
 				controlIndex < 0 ? 0 : controlIndex + 1, redlights.size()));
 		incomingLabel.setMessage(Component.translatable("railwaygps.redlight.choose_incoming",
-				format(incoming), incomingOptions.isEmpty() ? 0 : incomingOptions.indexOf(incoming) + 1,
+				format(incoming, true), incomingOptions.isEmpty() ? 0 : incomingOptions.indexOf(incoming) + 1,
 				incomingOptions.size()));
 		outgoingLabel.setMessage(Component.translatable("railwaygps.redlight.choose_outgoing",
-				format(outgoing), outgoingOptions.isEmpty() ? 0 : outgoingOptions.indexOf(outgoing) + 1,
+				format(outgoing, false), outgoingOptions.isEmpty() ? 0 : outgoingOptions.indexOf(outgoing) + 1,
 				outgoingOptions.size()));
 		boolean duplicate = incoming != null && outgoing != null && network.transitions().values().stream()
 				.anyMatch(transition -> transition.controlPointId().equals(controlPointId)
@@ -199,9 +201,17 @@ public final class RedlightPassageScreen extends Screen {
 
 	@Override public boolean isPauseScreen() { return false; }
 
-	private static String format(TraversalRef ref) {
+	private static String format(TraversalRef ref, boolean incoming) {
 		if (ref == null) return "—";
+		PhysicalTrack track = ClientRailwayNetwork.network().tracks().get(ref.trackId());
+		if (track == null) return ref.trackId();
+		String otherId = incoming ? RailwayNetworkValidator.startPoint(track, ref.direction())
+				: RailwayNetworkValidator.endPoint(track, ref.direction());
+		ControlPoint other = ClientRailwayNetwork.network().controlPoints().get(otherId);
+		String name = other == null ? otherId : other.name();
+		if (name.length() > 16) name = name.substring(0, 13) + "…";
 		String id = ref.trackId();
-		return (id.length() <= 20 ? id : id.substring(0, 17) + "…") + " " + ref.direction().name().toLowerCase(java.util.Locale.ROOT);
+		return name + " [" + id.substring(Math.max(0, id.length() - 6)) + " "
+				+ ref.direction().name().charAt(0) + "]";
 	}
 }
