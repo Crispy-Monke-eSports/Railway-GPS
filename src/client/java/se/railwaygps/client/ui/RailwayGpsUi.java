@@ -23,7 +23,10 @@ public final class RailwayGpsUi {
 		ClientTickEvents.END_CLIENT_TICK.register(client -> {
 			while (open.consumeClick()) {
 				if (client.gui.screen() != null) continue;
-				if (RailwayEditor.enabled()) RailwayEditor.close();
+				if (RailwayEditor.enabled()) {
+					RailwayEditor.finishSelection();
+					client.gui.setScreen(new StationCreationScreen());
+				}
 				else client.gui.setScreen(new NavigationScreen());
 			}
 		});

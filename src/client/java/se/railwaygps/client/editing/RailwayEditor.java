@@ -44,12 +44,26 @@ public final class RailwayEditor {
 		setEnabled(true);
 	}
 
+	public static void finishSelection() {
+		enabled = false;
+	}
+
 	public static void close() {
 		setEnabled(false);
 	}
 
 	public static boolean enabled() {
 		return enabled;
+	}
+
+	public static boolean hasCompleteSelection() { return first != null && second != null; }
+	public static String selectionText() {
+		return (first == null ? "—" : format(first)) + " → " + (second == null ? "—" : format(second));
+	}
+	public static void discardSelection() {
+		first = null;
+		second = null;
+		RailwayWorldOverlay.setSelectionPreview(null);
 	}
 
 	private static void setEnabled(boolean value) {

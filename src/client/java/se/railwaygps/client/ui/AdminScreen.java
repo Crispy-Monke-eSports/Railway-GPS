@@ -4,7 +4,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import se.railwaygps.client.editing.RailwayEditor;
 import se.railwaygps.railway.editing.TrackPairingAnalyzer;
 import se.railwaygps.client.ClientRailwayNetwork;
 
@@ -24,8 +23,7 @@ public final class AdminScreen extends Screen {
 		int left = (this.width - width) / 2;
 		int y = 58;
 		addRenderableWidget(Button.builder(Component.translatable("railwaygps.admin.zones"), button -> {
-			minecraft.gui.setScreen(null);
-			RailwayEditor.open();
+			minecraft.gui.setScreen(new StationCreationScreen());
 		}).bounds(left, y, width, 24).build());
 		int proposals = TrackPairingAnalyzer.proposals(ClientRailwayNetwork.network()).size();
 		addRenderableWidget(Button.builder(Component.translatable("railwaygps.admin.pairings", proposals),

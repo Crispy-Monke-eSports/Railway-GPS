@@ -18,16 +18,16 @@
   "railwaygps.editor.disabled": "Järnvägsredigeraren avstängd",
   "railwaygps.editor.first_required": "Välj först det första hörnet med vänsterklick",
   "railwaygps.editor.title": "JÄRNVÄGSREDAKTÖR · Kontrollpunktszon",
-  "railwaygps.editor.actions": "Vänsterklick: första hörnet · Högerklick: andra hörnet · R: stäng",
+  "railwaygps.editor.actions": "Vänsterklick: första hörnet · Högerklick: andra hörnet · R: återgå",
   "railwaygps.editor.selection": "Markering: %s → %s",
-  "railwaygps.editor.create_hint": "Skapa med /rgps control create <id> <typ> <namn>",
+  "railwaygps.editor.create_hint": "Tryck R för att granska och skapa stationen",
   "railwaygps.admin.pairings": "Förslag på parallellspår (%s)",
   "railwaygps.admin.directions": "Verifiera färd på befintlig rälsgeometri",
   "railwaygps.admin.survey": "Inventera fysisk räls",
   "railwaygps.admin.validation": "Valideringsrapport",
   "railwaygps.admin.subtitle": "Validerade verktyg för det fysiska järnvägsnätet",
   "railwaygps.admin.title": "Railway GPS-administration",
-  "railwaygps.admin.zones": "Markera en stations- eller rödljuszon",
+  "railwaygps.admin.zones": "Skapa station",
   "railwaygps.nav.not_active": "Navigeringen är inte aktiv",
   "railwaygps.nav.start.no_route": "Ingen tillåten järnvägsrutt från %s till %s",
   "railwaygps.nav.start.no_route_from_track": "Ingen tillåten rutt från den aktuella fysiska rälsen till %s",
@@ -88,4 +88,15 @@
   "railwaygps.validation.revision": "Aktiv revision %s",
   "railwaygps.validation.show_overlay": "Visa berört nät i världen",
   "railwaygps.validation.title": "Nätverksvalidering"
+  ,"railwaygps.station.all_rails": "All räls i boxen hör till stationen; inget enskilt spår behöver väljas"
+  ,"railwaygps.station.create": "Skapa station"
+  ,"railwaygps.station.created": "Stationen %s skapades"
+  ,"railwaygps.station.error": "Kunde inte skapa station: %s"
+  ,"railwaygps.station.name": "Stationsnamn"
+  ,"railwaygps.station.name_hint": "Unikt stationsnamn…"
+  ,"railwaygps.station.saving": "Validerar och sparar…"
+  ,"railwaygps.station.select": "Markera två motsatta hörn i världen"
+  ,"railwaygps.station.selection": "Zon: %s"
+  ,"railwaygps.station.subtitle": "Ett namn och en zon med två hörn"
+  ,"railwaygps.station.title": "Skapa station"
 }

@@ -36,7 +36,9 @@ public final class ClientNavigator {
 
 	public static StartResult start(LocalPlayer player, String destination) {
 		RailwayNetwork network = ClientRailwayNetwork.network();
-		if (!network.controlPoints().containsKey(destination)) {
+		ControlPoint requested = network.controlPoints().get(destination);
+		if (requested == null || requested.kind() != ControlPoint.Kind.STATION
+				|| !requested.zone().dimension().equals(player.level().dimension().identifier().toString())) {
 			return new StartResult(false, Component.translatable("railwaygps.nav.start.unknown_destination", destination));
 		}
 		boolean onRegisteredTrack = isOnRegisteredTrack(player, network);

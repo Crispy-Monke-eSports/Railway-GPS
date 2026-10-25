@@ -8,10 +8,10 @@ import net.minecraft.network.chat.Component;
 import se.railwaygps.client.ClientRailwayNetwork;
 import se.railwaygps.client.navigation.ClientNavigator;
 import se.railwaygps.client.navigation.NavigationSnapshot;
+import se.railwaygps.navigation.StationDirectory;
 import se.railwaygps.railway.model.ControlPoint;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 
@@ -94,10 +94,9 @@ public final class NavigationScreen extends Screen {
 
 	private void refreshDestinations() {
 		String query = search == null ? "" : search.getValue().strip().toLowerCase(Locale.ROOT);
-		visibleDestinations = ClientRailwayNetwork.network().controlPoints().values().stream()
+		String dimension = minecraft.player == null ? "" : minecraft.player.level().dimension().identifier().toString();
+		visibleDestinations = StationDirectory.inDimension(ClientRailwayNetwork.network(), dimension).stream()
 				.filter(point -> query.isEmpty() || searchable(point).contains(query))
-				.sorted(Comparator.comparingInt((ControlPoint point) -> kindOrder(point.kind()))
-						.thenComparing(ControlPoint::name, String.CASE_INSENSITIVE_ORDER))
 				.toList();
 		int maximumPage = Math.max(0, (visibleDestinations.size() - 1) / pageSize);
 		page = Math.min(page, maximumPage);
@@ -115,10 +114,7 @@ public final class NavigationScreen extends Screen {
 			}
 			ControlPoint point = visibleDestinations.get(index);
 			button.visible = true;
-			button.setMessage(Component.literal((point.id().equals(selectedId) ? "▶ " : "  ") + point.name())
-					.append(Component.literal("  ·  ").withColor(0x7F8C93))
-					.append(Component.translatable("railwaygps.ui.kind." + point.kind().name().toLowerCase(Locale.ROOT))
-							.withColor(0x9EABB3)));
+			button.setMessage(Component.literal((point.id().equals(selectedId) ? "▶ " : "  ") + point.name()));
 		}
 		previous.active = page > 0;
 		next.active = (page + 1) * pageSize < visibleDestinations.size();
@@ -173,15 +169,6 @@ public final class NavigationScreen extends Screen {
 	}
 
 	private static String searchable(ControlPoint point) {
-		return (point.name() + " " + point.id() + " " + point.kind().name()).toLowerCase(Locale.ROOT);
-	}
-
-	private static int kindOrder(ControlPoint.Kind kind) {
-		return switch (kind) {
-			case STATION -> 0;
-			case TERMINAL -> 1;
-			case JUNCTION -> 2;
-			case DIMENSION_GATE -> 3;
-		};
+		return point.name().toLowerCase(Locale.ROOT);
 	}
 }

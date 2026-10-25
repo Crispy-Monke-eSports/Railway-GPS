@@ -5,6 +5,8 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayConnectionEvents;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.permissions.Permissions;
+import se.railwaygps.railway.editing.StationCreator;
 import se.railwaygps.server.RailwayGpsServer;
 import se.railwaygps.storage.RailwayNetworkJsonCodec;
 import se.railwaygps.railway.model.RailwayNetwork;
@@ -17,10 +19,32 @@ public final class RailwayGpsNetworking {
 		PayloadTypeRegistry.clientboundPlay().registerLarge(
 				RailwayNetworkPayload.TYPE, RailwayNetworkPayload.CODEC, RailwayNetworkPayload.MAX_PAYLOAD_BYTES);
 		PayloadTypeRegistry.clientboundPlay().register(SurveyStatusPayload.TYPE, SurveyStatusPayload.CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(StationCreationResultPayload.TYPE, StationCreationResultPayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(CreateStationPayload.TYPE, CreateStationPayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(CreateStationPayload.TYPE, (payload, context) -> {
+			ServerPlayer player = context.player();
+			if (!player.createCommandSourceStack().permissions().hasPermission(Permissions.COMMANDS_MODERATOR)) {
+				sendStationResult(player, false, "railwaygps.station.error", "You are not allowed to create stations");
+				return;
+			}
+			try {
+				StationCreator.create(RailwayGpsServer.get(player.level().getServer()), player, payload.name());
+				sendStationResult(player, true, "railwaygps.station.created", payload.name().trim());
+			} catch (Exception exception) {
+				sendStationResult(player, false, "railwaygps.station.error", exception.getMessage());
+			}
+		});
 		ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> {
 			RailwayGpsServer state = RailwayGpsServer.get(server);
 			send(handler.getPlayer(), state.network());
 		});
+	}
+
+	private static void sendStationResult(ServerPlayer player, boolean success, String key, String detail) {
+		if (ServerPlayNetworking.canSend(player, StationCreationResultPayload.TYPE)) {
+			ServerPlayNetworking.send(player, new StationCreationResultPayload(success, key,
+					detail == null ? "Unknown error" : detail));
+		}
 	}
 
 	public static void sendSurveyStatus(ServerPlayer player, SurveyStatusPayload payload) {
