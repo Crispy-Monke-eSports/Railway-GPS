@@ -14,11 +14,11 @@ import se.railwaygps.navigation.PhysicalRoutePlan;
 import se.railwaygps.navigation.PhysicalRoutePlanner;
 import se.railwaygps.navigation.RailMatchConfidence;
 import se.railwaygps.navigation.StartInstructionResolver;
+import se.railwaygps.navigation.StationDestination;
 import se.railwaygps.railway.model.ControlPoint;
 import se.railwaygps.railway.model.PhysicalTrack;
 import se.railwaygps.railway.model.RailwayNetwork;
 import se.railwaygps.railway.model.TraversalRef;
-import se.railwaygps.railway.model.ZoneBox;
 import se.railwaygps.railway.model.ZoneOccupancyTracker;
 
 import java.util.Comparator;
@@ -40,6 +40,8 @@ public final class ClientNavigator {
 	private static long revision;
 	private static String pendingDestination;
 	private static int stableMovementTicks;
+	private static boolean pendingWasMounted;
+	private static boolean pendingNoRoute;
 	private static boolean activeWhileMounted;
 	private static final Map<String, ZoneOccupancyTracker> zoneTrackers = new HashMap<>();
 
@@ -48,24 +50,26 @@ public final class ClientNavigator {
 
 	public static StartResult start(LocalPlayer player, String destination) {
 		RailwayNetwork network = ClientRailwayNetwork.network();
-		ControlPoint requested = network.controlPoints().get(destination);
-		if (requested == null || requested.kind() != ControlPoint.Kind.STATION
-				|| !requested.zone().dimension().equals(player.level().dimension().identifier().toString())) {
+		if (StationDestination.status(network, destination,
+				player.level().dimension().identifier().toString()) != StationDestination.Status.AVAILABLE) {
 			return new StartResult(false, Component.translatable("railwaygps.nav.start.unknown_destination", destination));
 		}
 		pendingDestination = destination;
 		plan = null;
 		currentLeg = 0;
 		stableMovementTicks = 0;
+		pendingWasMounted = false;
+		pendingNoRoute = false;
 		boolean mounted = player.getVehicle() instanceof AbstractMinecart;
 		if (!mounted || player.getVehicle().getDeltaMovement().length() < MINIMUM_DIRECTION_SPEED) {
-			snapshot = uncertain(network, destination);
+			snapshot = pending(network, destination, false);
 			revision++;
 			return new StartResult(true, Component.translatable("railwaygps.nav.start.pending", name(network, destination)));
 		}
 		Optional<PhysicalRoutePlan> calculated = planFromCurrentTrack(player, network, destination);
 		if (calculated.isEmpty()) {
-			snapshot = uncertain(network, destination);
+			pendingNoRoute = true;
+			snapshot = pending(network, destination, true);
 			revision++;
 			return new StartResult(true, Component.translatable("railwaygps.nav.start.pending",
 					name(network, destination)));
@@ -89,6 +93,8 @@ public final class ClientNavigator {
 		currentLeg = 0;
 		zoneTrackers.clear();
 		stableMovementTicks = 0;
+		pendingWasMounted = false;
+		pendingNoRoute = false;
 		activeWhileMounted = false;
 		if (wasActive) {
 			revision++;
@@ -118,9 +124,21 @@ public final class ClientNavigator {
 		boolean mounted = client.player.getVehicle() instanceof AbstractMinecart;
 		if (plan != null && activeWhileMounted && !mounted) { stop(); return; }
 		if (plan == null && pendingDestination != null) {
-			if (!mounted) return;
+			RailwayNetwork network = ClientRailwayNetwork.network();
+			if (StationDestination.status(network, pendingDestination,
+					client.player.level().dimension().identifier().toString()) != StationDestination.Status.AVAILABLE) {
+				client.player.sendSystemMessage(Component.translatable("railwaygps.nav.station_removed"));
+				stop();
+				return;
+			}
+			if (!mounted) {
+				if (pendingWasMounted) stop();
+				return;
+			}
+			pendingWasMounted = true;
 			if (client.player.getVehicle().getDeltaMovement().length() < MINIMUM_DIRECTION_SPEED) {
 				stableMovementTicks = 0;
+				if (!pendingNoRoute) snapshot = pending(network, pendingDestination, false);
 				return;
 			}
 			if (++stableMovementTicks < 3) return;
@@ -129,12 +147,17 @@ public final class ClientNavigator {
 			if (pending.isPresent()) {
 				plan = pending.get();
 				pendingDestination = null;
+				pendingNoRoute = false;
 				currentLeg = 0;
 				activeWhileMounted = true;
 				networkVersion = ClientRailwayNetwork.version();
 				revision++;
 				update(client.player);
-			} else stableMovementTicks = 0;
+			} else {
+				stableMovementTicks = 0;
+				pendingNoRoute = true;
+				snapshot = pending(network, pendingDestination, true);
+			}
 			return;
 		}
 		if (plan == null) return;
@@ -212,9 +235,10 @@ public final class ClientNavigator {
 				Double.NaN, Double.NaN, 0, NavigationStatus.UNCERTAIN);
 	}
 
-	private static NavigationSnapshot uncertain(RailwayNetwork network, String destination) {
+	private static NavigationSnapshot pending(RailwayNetwork network, String destination, boolean noRoute) {
 		return new NavigationSnapshot(name(network, destination), name(network, destination),
-				Component.translatable("railwaygps.instruction.uncertain"),
+				Component.translatable(noRoute ? "railwaygps.instruction.no_route"
+						: "railwaygps.instruction.waiting_direction"),
 				Double.NaN, Double.NaN, 0, NavigationStatus.UNCERTAIN);
 	}
 
@@ -245,28 +269,28 @@ public final class ClientNavigator {
 	private static void replanAfterNetworkChange(LocalPlayer player) {
 		String destination = plan.destination();
 		RailwayNetwork network = ClientRailwayNetwork.network();
-		Optional<PhysicalRoutePlan> replacement = planFromCurrentTrack(player, network, destination);
-		if (replacement.isEmpty() && !isOnRegisteredTrack(player, network)) {
-			replacement = nearestNode(player, network)
-					.flatMap(node -> PhysicalRoutePlanner.shortestPath(network, node, destination));
+		if (StationDestination.status(network, destination,
+				player.level().dimension().identifier().toString()) != StationDestination.Status.AVAILABLE) {
+			player.sendSystemMessage(Component.translatable("railwaygps.nav.station_removed"));
+			stop();
+			return;
 		}
+		Optional<PhysicalRoutePlan> replacement = planFromCurrentTrack(player, network, destination);
 		if (replacement.isPresent()) {
 			plan = replacement.get();
 			currentLeg = 0;
 			revision++;
 		} else {
-			stop();
+			plan = null;
+			pendingDestination = destination;
+			pendingNoRoute = true;
+			pendingWasMounted = player.getVehicle() instanceof AbstractMinecart;
+			stableMovementTicks = 0;
+			activeWhileMounted = false;
+			snapshot = pending(network, destination, true);
+			revision++;
 		}
 		networkVersion = ClientRailwayNetwork.version();
-	}
-
-	private static Optional<String> nearestNode(LocalPlayer player, RailwayNetwork network) {
-		String dimension = player.level().dimension().identifier().toString();
-		return network.controlPoints().values().stream()
-				.filter(point -> dimension.equals(point.zone().dimension()))
-				.filter(point -> point.zone().contains(player.getX(), player.getY(), player.getZ()))
-				.min(Comparator.comparingDouble(point -> distanceSquared(player.position(), point.zone().boxes().getFirst())))
-				.map(ControlPoint::id);
 	}
 
 	private static Optional<PhysicalRoutePlan> planFromCurrentTrack(
@@ -325,15 +349,6 @@ public final class ClientNavigator {
 						|| candidate.movementAlignment(movement.x, movement.y, movement.z) >= MINIMUM_DIRECTION_ALIGNMENT));
 	}
 
-	private static boolean isOnRegisteredTrack(LocalPlayer player, RailwayNetwork network) {
-		String dimension = player.level().dimension().identifier().toString();
-		Vec3 position = player.getVehicle() != null ? player.getVehicle().position() : player.position();
-		return network.tracks().values().stream()
-				.filter(track -> track.status() == PhysicalTrack.Status.VERIFIED && dimension.equals(track.dimension()))
-				.map(track -> PolylineMatcher.nearest(track.points(), position.x(), position.y(), position.z()).orElse(null))
-				.anyMatch(match -> match != null && match.distanceToTrack() <= START_TRACK_MATCH_DISTANCE);
-	}
-
 	private static boolean isInsideControlPoint(LocalPlayer player, RailwayNetwork network, String id) {
 		ControlPoint point = network.controlPoints().get(id);
 		return point != null && point.zone().dimension().equals(player.level().dimension().identifier().toString())
@@ -347,17 +362,6 @@ public final class ClientNavigator {
 		ZoneOccupancyTracker tracker = zoneTrackers.computeIfAbsent(point.zone().id(), ignored -> new ZoneOccupancyTracker());
 		tracker.observe(point.zone(), player.getX(), player.getY(), player.getZ());
 		return tracker.inside();
-	}
-
-	private static double distanceSquared(Vec3 position, ZoneBox box) {
-		double x = (box.min().x() + box.max().x() + 1) / 2.0;
-		double y = (box.min().y() + box.max().y() + 1) / 2.0;
-		double z = (box.min().z() + box.max().z() + 1) / 2.0;
-		return square(position.x() - x) + square(position.y() - y) + square(position.z() - z);
-	}
-
-	private static double square(double value) {
-		return value * value;
 	}
 
 	private static String name(RailwayNetwork network, String id) {
