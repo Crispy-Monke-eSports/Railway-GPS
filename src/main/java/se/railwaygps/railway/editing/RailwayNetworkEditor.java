@@ -178,6 +178,19 @@ public final class RailwayNetworkEditor {
 		return validated(copy(network, network.controlPoints(), network.sections(), network.tracks(), transitions));
 	}
 
+	/** Toggles routability while retaining the verified transition identity and instruction. */
+	public static RailwayNetwork setTransitionEnabled(RailwayNetwork network, String id, boolean enabled)
+			throws NetworkValidationException {
+		TrackTransition existing = network.transitions().get(id);
+		if (existing == null) throw new IllegalArgumentException("Unknown transition '" + id + "'");
+		if (existing.enabled() == enabled) throw new IllegalArgumentException("Transition is already "
+				+ (enabled ? "enabled" : "disabled"));
+		Map<String, TrackTransition> transitions = new LinkedHashMap<>(network.transitions());
+		transitions.put(id, new TrackTransition(existing.id(), existing.controlPointId(), existing.incoming(),
+				existing.outgoing(), enabled, existing.instruction()));
+		return validated(copy(network, network.controlPoints(), network.sections(), network.tracks(), transitions));
+	}
+
 	private static RailwayNetwork copy(RailwayNetwork network, Map<String, ControlPoint> controlPoints,
 			Map<String, TrackSection> sections, Map<String, PhysicalTrack> tracks,
 			Map<String, TrackTransition> transitions) {

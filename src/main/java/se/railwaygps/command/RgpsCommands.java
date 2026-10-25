@@ -161,7 +161,7 @@ public final class RgpsCommands {
 		try {
 			kind = ControlPoint.Kind.valueOf(StringArgumentType.getString(context, "kind").toUpperCase(Locale.ROOT));
 		} catch (IllegalArgumentException exception) {
-			return fail(source, "Unknown control point kind; use station, junction, terminal or dimension_gate");
+			return fail(source, "Unknown control point kind; use station, redlight, terminal or dimension_gate");
 		}
 		try {
 			RailwayGpsServer state = RailwayGpsServer.get(source.getServer());

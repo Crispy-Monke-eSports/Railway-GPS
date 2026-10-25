@@ -34,4 +34,14 @@ public record PhysicalTopology(List<TrackPort> ports, List<DirectedPassage> pass
 	public static String portId(String trackId, TrackPort.Endpoint endpoint) {
 		return "port-" + trackId + "-" + endpoint.name().toLowerCase(java.util.Locale.ROOT);
 	}
+
+	public static String startPortId(TraversalRef traversal) {
+		return portId(traversal.trackId(), traversal.direction() == TrackDirection.FORWARD
+				? TrackPort.Endpoint.FROM : TrackPort.Endpoint.TO);
+	}
+
+	public static String endPortId(TraversalRef traversal) {
+		return portId(traversal.trackId(), traversal.direction() == TrackDirection.FORWARD
+				? TrackPort.Endpoint.TO : TrackPort.Endpoint.FROM);
+	}
 }

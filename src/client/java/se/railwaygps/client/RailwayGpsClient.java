@@ -17,6 +17,7 @@ import se.railwaygps.network.NetworkSnapshotDigest;
 import se.railwaygps.network.RailwayNetworkPayload;
 import se.railwaygps.network.SurveyStatusPayload;
 import se.railwaygps.network.StationCreationResultPayload;
+import se.railwaygps.network.TransitionToggleResultPayload;
 import se.railwaygps.storage.RailwayNetworkJsonCodec;
 import se.railwaygps.railway.model.RailwayNetwork;
 
@@ -49,12 +50,15 @@ public final class RailwayGpsClient implements ClientModInitializer {
 				(payload, context) -> ClientSurveyStatus.replace(payload));
 		ClientPlayNetworking.registerGlobalReceiver(StationCreationResultPayload.TYPE,
 				(payload, context) -> ClientStationCreationResult.replace(payload));
+		ClientPlayNetworking.registerGlobalReceiver(TransitionToggleResultPayload.TYPE,
+				(payload, context) -> ClientTransitionToggleResult.replace(payload));
 		ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> {
 			RailwayEditor.clear();
 			ClientNavigator.stop();
 			ClientRailwayNetwork.clear();
 			ClientSurveyStatus.clear();
 			ClientStationCreationResult.clear();
+			ClientTransitionToggleResult.clear();
 		});
 	}
 }

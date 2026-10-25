@@ -24,6 +24,7 @@
   "railwaygps.admin.pairings": "Parallel-track proposals (%s)",
   "railwaygps.admin.directions": "Verify travel on existing track geometry",
   "railwaygps.admin.survey": "Survey physical rails",
+  "railwaygps.admin.redlights": "Redlight passages",
   "railwaygps.admin.validation": "Validation report",
   "railwaygps.admin.subtitle": "Validated tools for the physical railway network",
   "railwaygps.admin.title": "Railway GPS administration",
@@ -88,6 +89,17 @@
   "railwaygps.validation.revision": "Active revision %s",
   "railwaygps.validation.show_overlay": "Show affected network",
   "railwaygps.validation.title": "Network validation"
+  ,"railwaygps.redlight.empty": "No verified redlight passages"
+  ,"railwaygps.redlight.error": "Could not update passage: %s"
+  ,"railwaygps.redlight.off": "Off"
+  ,"railwaygps.redlight.on": "On"
+  ,"railwaygps.redlight.row": "%s · %s → %s · %s"
+  ,"railwaygps.redlight.saved": "Validated redlight revision published"
+  ,"railwaygps.redlight.saving": "Validating and publishing…"
+  ,"railwaygps.redlight.subtitle": "One independent toggle per verified entry → exit"
+  ,"railwaygps.redlight.title": "Redlight passages"
+  ,"railwaygps.redlight.turn_off": "Turn selected passage off"
+  ,"railwaygps.redlight.turn_on": "Turn selected passage on"
   ,"railwaygps.station.all_rails": "Every rail inside the box belongs to the station; no rail selection is required"
   ,"railwaygps.station.create": "Create station"
   ,"railwaygps.station.created": "Created station %s"

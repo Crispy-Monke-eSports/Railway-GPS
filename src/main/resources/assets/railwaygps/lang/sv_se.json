@@ -24,6 +24,7 @@
   "railwaygps.admin.pairings": "Förslag på parallellspår (%s)",
   "railwaygps.admin.directions": "Verifiera färd på befintlig rälsgeometri",
   "railwaygps.admin.survey": "Inventera fysisk räls",
+  "railwaygps.admin.redlights": "Rödljuspassager",
   "railwaygps.admin.validation": "Valideringsrapport",
   "railwaygps.admin.subtitle": "Validerade verktyg för det fysiska järnvägsnätet",
   "railwaygps.admin.title": "Railway GPS-administration",
@@ -88,6 +89,17 @@
   "railwaygps.validation.revision": "Aktiv revision %s",
   "railwaygps.validation.show_overlay": "Visa berört nät i världen",
   "railwaygps.validation.title": "Nätverksvalidering"
+  ,"railwaygps.redlight.empty": "Inga verifierade rödljuspassager"
+  ,"railwaygps.redlight.error": "Kunde inte uppdatera passagen: %s"
+  ,"railwaygps.redlight.off": "Av"
+  ,"railwaygps.redlight.on": "På"
+  ,"railwaygps.redlight.row": "%s · %s → %s · %s"
+  ,"railwaygps.redlight.saved": "Validerad rödljusrevision publicerad"
+  ,"railwaygps.redlight.saving": "Validerar och publicerar…"
+  ,"railwaygps.redlight.subtitle": "En oberoende brytare per verifierad ingång → utgång"
+  ,"railwaygps.redlight.title": "Rödljuspassager"
+  ,"railwaygps.redlight.turn_off": "Stäng av vald passage"
+  ,"railwaygps.redlight.turn_on": "Slå på vald passage"
   ,"railwaygps.station.all_rails": "All räls i boxen hör till stationen; inget enskilt spår behöver väljas"
   ,"railwaygps.station.create": "Skapa station"
   ,"railwaygps.station.created": "Stationen %s skapades"

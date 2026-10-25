@@ -149,6 +149,10 @@ public final class RailwayNetworkValidator {
 		if (!network.controlPoints().containsKey(transition.controlPointId())) {
 			errors.add("Transition '" + id + "' refers to a missing control point");
 		}
+		ControlPoint controlPoint = network.controlPoints().get(transition.controlPointId());
+		if (controlPoint != null && !controlPoint.isRedlight()) {
+			errors.add("Transition '" + id + "' must belong to a redlight control point");
+		}
 		if (transition.incoming() == null || transition.outgoing() == null) {
 			errors.add("Transition '" + id + "' has a missing traversal reference");
 			return;

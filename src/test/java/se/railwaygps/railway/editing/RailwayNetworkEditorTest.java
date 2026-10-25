@@ -72,6 +72,27 @@ class RailwayNetworkEditorTest {
 	}
 
 	@Test
+	void togglesOneRedlightPassageWithoutLosingItsVerifiedIdentityOrInstruction() throws Exception {
+		RailwayNetwork network = withThreeControlPoints();
+		network = RailwayNetworkEditor.addRecordedTrack(network, "into_center", "west", "center", "minecraft:overworld",
+				List.of(point(2, 64, 0), point(9, 64, 0)));
+		network = RailwayNetworkEditor.addRecordedTrack(network, "out_of_center", "center", "east", "minecraft:overworld",
+				List.of(point(11, 64, 0), point(18, 64, 0)));
+		network = RailwayNetworkEditor.addTransition(network, "through_center", "center",
+				new TraversalRef("into_center", TrackDirection.FORWARD),
+				new TraversalRef("out_of_center", TrackDirection.FORWARD), "Välj knappen för Central");
+
+		RailwayNetwork disabled = RailwayNetworkEditor.setTransitionEnabled(network, "through_center", false);
+		RailwayNetwork enabled = RailwayNetworkEditor.setTransitionEnabled(disabled, "through_center", true);
+
+		assertEquals("Välj knappen för Central", disabled.transitions().get("through_center").instruction());
+		assertEquals(network.transitions().get("through_center").incoming(),
+				disabled.transitions().get("through_center").incoming());
+		assertTrue(!disabled.transitions().get("through_center").enabled());
+		assertTrue(enabled.transitions().get("through_center").enabled());
+	}
+
+	@Test
 	void verifiesReverseTravelOnTheSameGeometryWithoutCreatingOrPairingTracks() throws Exception {
 		RailwayNetwork network = RailwayNetworkEditor.addRecordedTrack(withControlPoints(), "single",
 				"west", "east", "minecraft:overworld", List.of(point(2, 64, 0), point(8, 64, 0)));
@@ -109,7 +130,7 @@ class RailwayNetworkEditorTest {
 	private static RailwayNetwork withThreeControlPoints() throws Exception {
 		RailwayNetwork network = RailwayNetwork.EMPTY;
 		network = RailwayNetworkEditor.addControlPoint(network, "west", "West", ControlPoint.Kind.JUNCTION, zone(0));
-		network = RailwayNetworkEditor.addControlPoint(network, "center", "Center", ControlPoint.Kind.JUNCTION, zone(10));
+		network = RailwayNetworkEditor.addControlPoint(network, "center", "Center", ControlPoint.Kind.REDLIGHT, zone(10));
 		return RailwayNetworkEditor.addControlPoint(network, "east", "East", ControlPoint.Kind.JUNCTION, zone(20));
 	}
 

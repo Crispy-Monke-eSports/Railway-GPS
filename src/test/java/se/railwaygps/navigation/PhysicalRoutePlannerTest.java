@@ -68,6 +68,12 @@ class PhysicalRoutePlannerTest {
 		assertEquals(20, plan.distance());
 		assertEquals("Välj knappen för C",
 				PhysicalInstructionResolver.between(network, plan.legs().get(0), plan.legs().get(1)).customText());
+
+		RailwayNetwork disabled = RailwayNetworkEditor.setTransitionEnabled(network, "a_to_c", false);
+		assertTrue(PhysicalRoutePlanner.shortestPath(disabled, "a", "c").isEmpty());
+		RailwayNetwork enabledAgain = RailwayNetworkEditor.setTransitionEnabled(disabled, "a_to_c", true);
+		assertTrue(PhysicalRoutePlanner.shortestPath(enabledAgain, "a", "c").isPresent());
+		assertEquals("Välj knappen för C", enabledAgain.transitions().get("a_to_c").instruction());
 	}
 
 	@Test

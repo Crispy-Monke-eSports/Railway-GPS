@@ -15,9 +15,15 @@ public record ControlPoint(
 
 	public enum Kind {
 		STATION,
+		REDLIGHT,
+		/** Legacy serialized name retained for schema-2 compatibility. */
 		JUNCTION,
 		TERMINAL,
 		DIMENSION_GATE
+	}
+
+	public boolean isRedlight() {
+		return kind == Kind.REDLIGHT || kind == Kind.JUNCTION;
 	}
 
 	public record Platform(String id, String name, Zone zone) {
