@@ -183,7 +183,7 @@ public final class RgpsCommands {
 			RailwayGpsServer.get(source.getServer()).surveys().start(source.getPlayerOrException(),
 					source.getServer().getTickCount());
 			source.sendSuccess(() -> Component.literal("Survey started. Drive through any number of control points; "
-					+ "track identities and transitions will be created automatically."), true);
+					+ "safe track directions and transitions will be resolved automatically."), true);
 			return Command.SINGLE_SUCCESS;
 		} catch (RecordingException exception) {
 			return fail(source, exception.getMessage());

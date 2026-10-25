@@ -18,6 +18,7 @@ import se.railwaygps.network.SurveyStatusPayload;
 import se.railwaygps.server.RailwayGpsServer;
 import se.railwaygps.railway.model.ControlPoint;
 import se.railwaygps.railway.model.RailwayNetwork;
+import se.railwaygps.railway.model.TraversalRef;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -47,16 +48,32 @@ public final class SurveyManager {
 		if (!(vehicle instanceof AbstractMinecart minecart)) {
 			throw new RecordingException("You must be riding a minecart to start a survey");
 		}
+		BlockPos rail = minecart.getCurrentBlockPosOrRailBelow();
+		if (!BaseRailBlock.isRail(minecart.level(), rail)) {
+			throw new RecordingException("The minecart must be on real rails to start a survey");
+		}
 		ControlPoint from = controlPointAt(network, dimension, minecart.getX(), minecart.getY(), minecart.getZ());
-		if (from == null) throw new RecordingException("The minecart must be inside a control-point zone");
-		Session session = new Session(player.getUUID(), minecart, dimension, from.id(), tick, network);
+		SurveyTrackResolver.Anchor anchor = null;
+		if (from == null) {
+			try {
+				anchor = SurveyTrackResolver.anchor(network, dimension,
+						new TrackPoint(rail.getX(), rail.getY(), rail.getZ()));
+			} catch (IllegalArgumentException exception) {
+				throw new RecordingException(exception.getMessage(), exception);
+			}
+		}
+		Session session = new Session(player.getUUID(), minecart, dimension,
+				from == null ? null : from.id(), anchor, tick, network);
 		sessions.put(player.getUUID(), session);
 		publish(player, session, tick, "recording", "railwaygps.survey.status.recording", "");
 	}
 
 	public Status status(ServerPlayer player, long tick) throws RecordingException {
 		Session session = requireSession(player);
-		return new Status(session.visits.getFirst().controlPointId, session.visits.getLast().controlPointId,
+		String origin = session.startControlPointId != null ? session.startControlPointId
+				: "track:" + session.anchor.trackId();
+		String latest = session.visits.isEmpty() ? origin : session.visits.getLast().controlPointId;
+		return new Status(origin, latest,
 				session.visits.size(), session.samples.points().size(),
 				session.distance, tick - session.startedAtTick);
 	}
@@ -75,9 +92,15 @@ public final class SurveyManager {
 			cancelInvalid(player, failureMessage(session.samples.failure()));
 			throw new RecordingException("Survey was cancelled without saving");
 		}
+		if (state.network().revision() != session.startedRevision) {
+			publish(player, session, player.level().getServer().getTickCount(), "recording",
+					"railwaygps.survey.status.network_changed", "");
+			throw new RecordingException("The railway network changed during the survey; cancel and record again");
+		}
 		ControlPoint destination = controlPointAt(state.network(), session.dimension,
 				minecart.getX(), minecart.getY(), minecart.getZ());
-		if (destination == null || session.visits.size() < 2
+		int minimumVisits = session.anchor == null ? 2 : 1;
+		if (destination == null || session.visits.size() < minimumVisits
 				|| !destination.id().equals(session.visits.getLast().controlPointId)) {
 			publish(player, session, player.level().getServer().getTickCount(), "recording",
 					"railwaygps.survey.status.finish_zone", "");
@@ -86,8 +109,18 @@ public final class SurveyManager {
 		try {
 			RailwayNetwork updated = state.network();
 			List<String> trackIds = new ArrayList<>();
+			List<TraversalRef> traversals = new ArrayList<>();
 			double length = 0;
 			int simplifiedPoints = 0;
+			if (session.anchor != null) {
+				Visit firstVisit = session.visits.getFirst();
+				List<TrackPoint> prefix = session.samples.points().subList(0,
+						Math.min(session.samples.points().size(), firstVisit.pointIndex + 1));
+				TraversalRef anchored = SurveyTrackResolver.resolveAnchorTraversal(updated, session.anchor,
+						firstVisit.controlPointId, prefix);
+				traversals.add(anchored);
+				trackIds.add(anchored.trackId());
+			}
 			for (int index = 1; index < session.visits.size(); index++) {
 				Visit from = session.visits.get(index - 1);
 				Visit to = session.visits.get(index);
@@ -96,23 +129,22 @@ public final class SurveyManager {
 				List<TrackPoint> raw = new ArrayList<>(points.subList(from.pointIndex,
 						Math.min(points.size(), to.pointIndex + 1)));
 				List<TrackPoint> simplified = TrackGeometry.simplify(raw);
-				RailwayNetworkEditor.AddedTrack added = RailwayNetworkEditor.addRecordedTrack(updated,
+				SurveyTrackResolver.ResolvedTraversal resolved = SurveyTrackResolver.resolveOrCreate(updated,
 						from.controlPointId, to.controlPointId, session.dimension, simplified);
-				updated = added.network();
-				trackIds.add(added.trackId());
+				updated = resolved.network();
+				traversals.add(resolved.traversal());
+				trackIds.add(resolved.traversal().trackId());
 				length += TrackGeometry.length(simplified);
 				simplifiedPoints += simplified.size();
 			}
-			for (int index = 1; index < trackIds.size(); index++) {
-				String transitionId = "transition-" + UUID.randomUUID().toString().replace("-", "");
-				updated = RailwayNetworkEditor.addTransition(updated, transitionId,
-						session.visits.get(index).controlPointId,
-						new se.railwaygps.railway.model.TraversalRef(trackIds.get(index - 1),
-								se.railwaygps.railway.model.TrackDirection.FORWARD),
-						new se.railwaygps.railway.model.TraversalRef(trackIds.get(index),
-								se.railwaygps.railway.model.TrackDirection.FORWARD), null);
+			for (int index = 1; index < traversals.size(); index++) {
+				int visitIndex = session.anchor == null ? index : index - 1;
+				updated = addObservedTransition(updated, session.visits.get(visitIndex).controlPointId,
+						traversals.get(index - 1), traversals.get(index));
 			}
-			if (trackIds.isEmpty()) throw new IllegalArgumentException("No complete track section was recorded");
+			if (traversals.isEmpty() || updated == state.network()) {
+				throw new IllegalArgumentException("No new track direction or transition was recorded");
+			}
 			state.save(updated);
 			sessions.remove(player.getUUID());
 			publish(player, session, player.level().getServer().getTickCount(), "finished",
@@ -124,6 +156,17 @@ public final class SurveyManager {
 					"railwaygps.survey.status.save_failed", exception.getMessage());
 			throw new RecordingException("Could not save physical track: " + exception.getMessage(), exception);
 		}
+	}
+
+	private static RailwayNetwork addObservedTransition(RailwayNetwork network, String controlPointId,
+			TraversalRef incoming, TraversalRef outgoing) throws NetworkValidationException {
+		boolean exists = network.transitions().values().stream()
+				.anyMatch(transition -> transition.enabled()
+						&& transition.controlPointId().equals(controlPointId)
+						&& transition.incoming().equals(incoming) && transition.outgoing().equals(outgoing));
+		if (exists) return network;
+		String transitionId = "transition-" + UUID.randomUUID().toString().replace("-", "");
+		return RailwayNetworkEditor.addTransition(network, transitionId, controlPointId, incoming, outgoing, null);
 	}
 
 	public void cancel(ServerPlayer player) throws RecordingException {
@@ -237,7 +280,10 @@ public final class SurveyManager {
 		private final UUID playerId;
 		private final UUID minecartId;
 		private final String dimension;
+		private final String startControlPointId;
+		private final SurveyTrackResolver.Anchor anchor;
 		private final long startedAtTick;
+		private final long startedRevision;
 		private final SurveySampleValidator samples = new SurveySampleValidator();
 		private final List<Visit> visits = new ArrayList<>();
 		private double previousX;
@@ -246,16 +292,19 @@ public final class SurveyManager {
 		private double distance;
 
 		private Session(UUID playerId, AbstractMinecart minecart, String dimension, String fromId,
-				long startedAtTick, RailwayNetwork network) {
+				SurveyTrackResolver.Anchor anchor, long startedAtTick, RailwayNetwork network) {
 			this.playerId = playerId;
 			this.minecartId = minecart.getUUID();
 			this.dimension = dimension;
+			this.startControlPointId = fromId;
+			this.anchor = anchor;
 			this.startedAtTick = startedAtTick;
+			this.startedRevision = network.revision();
 			this.previousX = minecart.getX();
 			this.previousY = minecart.getY();
 			this.previousZ = minecart.getZ();
 			sample(minecart, network);
-			if (visits.isEmpty()) visits.add(new Visit(fromId, 0));
+			if (visits.isEmpty() && fromId != null) visits.add(new Visit(fromId, 0));
 		}
 
 		private void sample(AbstractMinecart minecart, RailwayNetwork network) {
