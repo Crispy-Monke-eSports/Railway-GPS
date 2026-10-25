@@ -84,12 +84,15 @@ class RailwayNetworkEditorTest {
 
 		RailwayNetwork disabled = RailwayNetworkEditor.setTransitionEnabled(network, "through_center", false);
 		RailwayNetwork enabled = RailwayNetworkEditor.setTransitionEnabled(disabled, "through_center", true);
+		RailwayNetwork edited = RailwayNetworkEditor.setTransitionInstruction(enabled, "through_center",
+				"  Välj knappen för Martyrön!  ");
 
 		assertEquals("Välj knappen för Central", disabled.transitions().get("through_center").instruction());
 		assertEquals(network.transitions().get("through_center").incoming(),
 				disabled.transitions().get("through_center").incoming());
 		assertTrue(!disabled.transitions().get("through_center").enabled());
 		assertTrue(enabled.transitions().get("through_center").enabled());
+		assertEquals("  Välj knappen för Martyrön!  ", edited.transitions().get("through_center").instruction());
 	}
 
 	@Test

@@ -28,6 +28,7 @@ import java.util.Map;
 public final class ClientNavigator {
 	private static final double TRACK_MATCH_DISTANCE = 6.0;
 	private static final double START_TRACK_MATCH_DISTANCE = 2.0;
+	private static final double REDLIGHT_APPROACH_DISTANCE = 32.0;
 	private static PhysicalRoutePlan plan;
 	private static int currentLeg;
 	private static String networkVersion = "";
@@ -154,7 +155,7 @@ public final class ClientNavigator {
 		NavigationStatus status = match.distanceToTrack() <= TRACK_MATCH_DISTANCE
 				? NavigationStatus.ON_ROUTE : NavigationStatus.UNCERTAIN;
 		Component instruction = status == NavigationStatus.ON_ROUTE
-				? instruction(player, network, leg) : Component.translatable("railwaygps.instruction.uncertain");
+				? instruction(player, network, leg, distanceToNext) : Component.translatable("railwaygps.instruction.uncertain");
 		snapshot = new NavigationSnapshot(
 				name(network, plan.destination()),
 				name(network, leg.to()),
@@ -171,12 +172,16 @@ public final class ClientNavigator {
 				leg.track().length(), remainingPlannedDistance(), plan.legs().size() - currentLeg - 1, NavigationStatus.UNCERTAIN);
 	}
 
-	private static Component instruction(LocalPlayer player, RailwayNetwork network, PhysicalRouteLeg leg) {
+	private static Component instruction(LocalPlayer player, RailwayNetwork network, PhysicalRouteLeg leg,
+			double distanceToNext) {
 		PhysicalInstructionResolver.Instruction resolved;
 		if (currentLeg == 0 && isInsideControlPoint(player, network, leg.from())) {
 			Vec3 position = player.getVehicle() != null ? player.getVehicle().position() : player.position();
 			resolved = StartInstructionResolver.resolve(network, leg, position.x(), position.y(), position.z());
 		} else if (currentLeg + 1 < plan.legs().size()) {
+			if (distanceToNext > REDLIGHT_APPROACH_DISTANCE && !isInsideControlPoint(player, network, leg.to())) {
+				return Component.translatable("railwaygps.instruction.continue", name(network, leg.to()));
+			}
 			resolved = PhysicalInstructionResolver.between(network, leg, plan.legs().get(currentLeg + 1));
 		} else {
 			return Component.translatable("railwaygps.instruction.continue", name(network, leg.to()));

@@ -174,7 +174,7 @@ public final class RailwayNetworkEditor {
 		requireControlPoint(network, controlPointId);
 		Map<String, TrackTransition> transitions = new LinkedHashMap<>(network.transitions());
 		transitions.put(id, new TrackTransition(id, controlPointId, incoming, outgoing, true,
-				instruction == null || instruction.isBlank() ? null : instruction.trim()));
+				instruction == null || instruction.isBlank() ? null : instruction));
 		return validated(copy(network, network.controlPoints(), network.sections(), network.tracks(), transitions));
 	}
 
@@ -188,6 +188,17 @@ public final class RailwayNetworkEditor {
 		Map<String, TrackTransition> transitions = new LinkedHashMap<>(network.transitions());
 		transitions.put(id, new TrackTransition(existing.id(), existing.controlPointId(), existing.incoming(),
 				existing.outgoing(), enabled, existing.instruction()));
+		return validated(copy(network, network.controlPoints(), network.sections(), network.tracks(), transitions));
+	}
+
+	public static RailwayNetwork setTransitionInstruction(RailwayNetwork network, String id, String instruction)
+			throws NetworkValidationException {
+		TrackTransition existing = network.transitions().get(id);
+		if (existing == null) throw new IllegalArgumentException("Unknown transition '" + id + "'");
+		String literal = instruction == null || instruction.isBlank() ? null : instruction;
+		Map<String, TrackTransition> transitions = new LinkedHashMap<>(network.transitions());
+		transitions.put(id, new TrackTransition(existing.id(), existing.controlPointId(), existing.incoming(),
+				existing.outgoing(), existing.enabled(), literal));
 		return validated(copy(network, network.controlPoints(), network.sections(), network.tracks(), transitions));
 	}
 

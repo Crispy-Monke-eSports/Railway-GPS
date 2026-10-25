@@ -3,12 +3,14 @@ package se.railwaygps.client.ui;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import se.railwaygps.client.ClientRailwayNetwork;
 import se.railwaygps.client.ClientTransitionToggleResult;
 import se.railwaygps.client.inspector.RailwayWorldOverlay;
 import se.railwaygps.network.TransitionTogglePayload;
+import se.railwaygps.network.TransitionInstructionPayload;
 import se.railwaygps.network.TransitionToggleResultPayload;
 import se.railwaygps.railway.model.ControlPoint;
 import se.railwaygps.railway.model.PhysicalTopology;
@@ -24,6 +26,8 @@ public final class RedlightScreen extends Screen {
 	private List<TrackTransition> transitions = List.of();
 	private TrackTransition selected;
 	private Button toggle;
+	private Button saveInstruction;
+	private EditBox instruction;
 	private Component feedback = Component.empty();
 	private long resultRevision;
 	private String networkVersion = "";
@@ -44,6 +48,13 @@ public final class RedlightScreen extends Screen {
 		}
 		toggle = addRenderableWidget(Button.builder(Component.empty(), button -> toggle())
 				.bounds(left + 16, height - 42, 170, 20).build());
+		instruction = new EditBox(font, left + 16, height - 92, panelWidth - 32, 20,
+				Component.translatable("railwaygps.redlight.instruction"));
+		instruction.setMaxLength(300);
+		instruction.setHint(Component.translatable("railwaygps.redlight.instruction_hint"));
+		addRenderableWidget(instruction);
+		saveInstruction = addRenderableWidget(Button.builder(Component.translatable("railwaygps.redlight.save_instruction"),
+				button -> saveInstruction()).bounds(left + 192, height - 42, 170, 20).build());
 		addRenderableWidget(Button.builder(Component.translatable("gui.back"), button -> onClose())
 				.bounds(left + panelWidth - 96, height - 42, 80, 20).build());
 		resultRevision = ClientTransitionToggleResult.revision();
@@ -83,6 +94,8 @@ public final class RedlightScreen extends Screen {
 					Component.translatable(transition.enabled() ? "railwaygps.redlight.on" : "railwaygps.redlight.off")));
 		}
 		toggle.active = selected != null;
+		saveInstruction.active = selected != null;
+		instruction.active = selected != null;
 		toggle.setMessage(Component.translatable(selected != null && selected.enabled()
 				? "railwaygps.redlight.turn_off" : "railwaygps.redlight.turn_on"));
 	}
@@ -90,8 +103,16 @@ public final class RedlightScreen extends Screen {
 	private void select(int index) {
 		if (index >= transitions.size()) return;
 		selected = transitions.get(index);
+		instruction.setValue(selected.instruction() == null ? "" : selected.instruction());
 		RailwayWorldOverlay.setHighlightedTrackPair(selected.incoming().trackId(), selected.outgoing().trackId());
 		refresh();
+	}
+
+	private void saveInstruction() {
+		if (selected == null) return;
+		feedback = Component.translatable("railwaygps.redlight.saving");
+		ClientPlayNetworking.send(new TransitionInstructionPayload(selected.id(), instruction.getValue()));
+		saveInstruction.active = false;
 	}
 
 	private void toggle() {
@@ -117,9 +138,7 @@ public final class RedlightScreen extends Screen {
 		graphics.centeredText(font, Component.translatable("railwaygps.redlight.subtitle"), width / 2, 38, 0xFF9EABB3);
 		if (transitions.isEmpty()) graphics.centeredText(font, Component.translatable("railwaygps.redlight.empty"),
 				width / 2, 72, 0xFF9EABB3);
-		if (selected != null && selected.instruction() != null) graphics.centeredText(font,
-				Component.literal(selected.instruction()), width / 2, height - 68, 0xFFF2C94C);
-		graphics.centeredText(font, feedback, width / 2, height - 56, 0xFF9EABB3);
+		graphics.centeredText(font, feedback, width / 2, height - 106, 0xFF9EABB3);
 	}
 
 	@Override public boolean isPauseScreen() { return false; }

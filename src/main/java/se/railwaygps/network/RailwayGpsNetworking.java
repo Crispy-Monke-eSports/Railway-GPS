@@ -24,6 +24,7 @@ public final class RailwayGpsNetworking {
 		PayloadTypeRegistry.clientboundPlay().register(TransitionToggleResultPayload.TYPE, TransitionToggleResultPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(CreateStationPayload.TYPE, CreateStationPayload.CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(TransitionTogglePayload.TYPE, TransitionTogglePayload.CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(TransitionInstructionPayload.TYPE, TransitionInstructionPayload.CODEC);
 		ServerPlayNetworking.registerGlobalReceiver(CreateStationPayload.TYPE, (payload, context) -> {
 			ServerPlayer player = context.player();
 			if (!player.createCommandSourceStack().permissions().hasPermission(Permissions.COMMANDS_MODERATOR)) {
@@ -48,6 +49,21 @@ public final class RailwayGpsNetworking {
 				RailwayGpsServer state = RailwayGpsServer.get(player.level().getServer());
 				state.save(RailwayNetworkEditor.setTransitionEnabled(
 						state.network(), payload.transitionId(), payload.enabled()));
+				sendTransitionResult(player, true, payload.transitionId());
+			} catch (Exception exception) {
+				sendTransitionResult(player, false, exception.getMessage());
+			}
+		});
+		ServerPlayNetworking.registerGlobalReceiver(TransitionInstructionPayload.TYPE, (payload, context) -> {
+			ServerPlayer player = context.player();
+			if (!player.createCommandSourceStack().permissions().hasPermission(Permissions.COMMANDS_MODERATOR)) {
+				sendTransitionResult(player, false, "You are not allowed to edit redlight instructions");
+				return;
+			}
+			try {
+				RailwayGpsServer state = RailwayGpsServer.get(player.level().getServer());
+				state.save(RailwayNetworkEditor.setTransitionInstruction(
+						state.network(), payload.transitionId(), payload.instruction()));
 				sendTransitionResult(player, true, payload.transitionId());
 			} catch (Exception exception) {
 				sendTransitionResult(player, false, exception.getMessage());
