@@ -29,22 +29,32 @@ public final class NavigationHud {
 
 			int width = 230;
 			Component notice = ClientNavigator.notice().orElse(null);
-			int height = notice == null ? 72 : 86;
+			boolean namedRail = !snapshot.railNames().isBlank() && snapshot.status() == NavigationStatus.ON_ROUTE;
+			int height = 72 + (namedRail ? 14 : 0) + (notice == null ? 0 : 14);
 			int x = (graphics.guiWidth() - width) / 2;
 			int y = 12;
 			graphics.fill(x, y, x + width, y + height, 0xB0101519);
 			graphics.fill(x, y, x + 3, y + height, statusColor(snapshot.status()));
 			graphics.text(client.font, Component.translatable("railwaygps.hud.title", snapshot.destination()),
 					x + 10, y + 8, 0xFFFFFFFF, true);
-			graphics.text(client.font, snapshot.instruction(), x + 10, y + 24, statusColor(snapshot.status()), true);
-			if (snapshot.status() == NavigationStatus.UNCERTAIN) return;
-			graphics.text(client.font, Component.translatable("railwaygps.hud.next",
-							snapshot.nextNode(), Math.round(snapshot.distanceToNext())),
-					x + 10, y + 40, 0xFFE2E8EC, true);
+			int row = y + 24;
+			if (namedRail) {
+				graphics.text(client.font, Component.literal(client.font.plainSubstrByWidth(snapshot.railNames(), width - 20)),
+						x + 10, row, 0xFFF2C94C, true);
+				row += 14;
+			}
+			graphics.text(client.font, snapshot.instruction(), x + 10, row, statusColor(snapshot.status()), true);
+			if (snapshot.status() != NavigationStatus.ON_ROUTE) return;
+			Component redlight = snapshot.insideRedlight()
+					? Component.translatable("railwaygps.hud.inside_redlight")
+					: Double.isFinite(snapshot.distanceToNext())
+					? Component.translatable("railwaygps.hud.next_redlight", Math.round(snapshot.distanceToNext()))
+					: Component.translatable("railwaygps.hud.no_redlight");
+			graphics.text(client.font, redlight, x + 10, row + 16, 0xFFE2E8EC, true);
 			graphics.text(client.font, Component.translatable("railwaygps.hud.remaining",
 							Math.round(snapshot.distanceRemaining()), snapshot.junctionsRemaining()),
-					x + 10, y + 55, 0xFF9EABB3, true);
-			if (notice != null) graphics.text(client.font, notice, x + 10, y + 70, 0xFF64B5F6, true);
+					x + 10, row + 31, 0xFF9EABB3, true);
+			if (notice != null) graphics.text(client.font, notice, x + 10, row + 46, 0xFF64B5F6, true);
 		});
 	}
 

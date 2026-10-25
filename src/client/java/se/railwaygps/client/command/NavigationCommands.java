@@ -38,10 +38,11 @@ public final class NavigationCommands {
 						}))
 						.then(ClientCommands.literal("status").executes(context -> {
 							ClientNavigator.snapshot().ifPresentOrElse(
-									snapshot -> context.getSource().sendFeedback(Component.translatable(
-											"railwaygps.nav.status",
-											snapshot.destination(), snapshot.nextNode(),
-											Math.round(snapshot.distanceRemaining()), statusText(snapshot.status()))),
+									snapshot -> context.getSource().sendFeedback(snapshot.status() == NavigationStatus.ON_ROUTE
+											? Component.translatable("railwaygps.nav.status", snapshot.destination(),
+												snapshot.nextNode(), Math.round(snapshot.distanceRemaining()), statusText(snapshot.status()))
+											: Component.translatable("railwaygps.nav.status.simple",
+												snapshot.destination(), statusText(snapshot.status()))),
 									() -> context.getSource().sendError(Component.translatable("railwaygps.nav.not_active")));
 							return ClientNavigator.snapshot().isPresent() ? Command.SINGLE_SUCCESS : 0;
 						}))

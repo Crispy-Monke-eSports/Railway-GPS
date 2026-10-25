@@ -13,8 +13,10 @@ import se.railwaygps.navigation.PhysicalRouteLeg;
 import se.railwaygps.navigation.PhysicalRoutePlan;
 import se.railwaygps.navigation.PhysicalRoutePlanner;
 import se.railwaygps.navigation.RailMatchConfidence;
+import se.railwaygps.navigation.RailLabelResolver;
 import se.railwaygps.navigation.RouteChange;
 import se.railwaygps.navigation.RouteValidity;
+import se.railwaygps.navigation.RouteProgress;
 import se.railwaygps.navigation.StartInstructionResolver;
 import se.railwaygps.navigation.StationDestination;
 import se.railwaygps.railway.model.ControlPoint;
@@ -188,13 +190,13 @@ public final class ClientNavigator {
 			currentLeg = plan.legs().size();
 			snapshot = new NavigationSnapshot(name(network, plan.destination()), name(network, plan.destination()),
 					Component.translatable("railwaygps.instruction.arrived"),
-					0, 0, 0, NavigationStatus.ARRIVED);
+					"", 0, false, 0, 0, NavigationStatus.ARRIVED);
 			return;
 		}
 		if (currentLeg >= plan.legs().size()) {
 			snapshot = new NavigationSnapshot(name(network, plan.destination()), name(network, plan.destination()),
 					Component.translatable("railwaygps.instruction.arrived"),
-					0, 0, 0, NavigationStatus.ARRIVED);
+					"", 0, false, 0, 0, NavigationStatus.ARRIVED);
 			return;
 		}
 
@@ -240,11 +242,26 @@ public final class ClientNavigator {
 				? NavigationStatus.ON_ROUTE : NavigationStatus.UNCERTAIN;
 		Component instruction = status == NavigationStatus.ON_ROUTE
 				? instruction(player, network, leg, distanceToNext) : Component.translatable("railwaygps.instruction.uncertain");
+		double storedAlong = match.trackLength() == 0 ? 0
+				: match.distanceAlong() * leg.track().length() / match.trackLength();
+		double canonicalAlong = leg.direction() == se.railwaygps.railway.model.TrackDirection.FORWARD
+				? storedAlong : leg.track().length() - storedAlong;
+		String railNames = status == NavigationStatus.ON_ROUTE
+				? RailLabelResolver.at(network, leg.track().id(), leg.direction(), canonicalAlong).display() : "";
+		double nextRedlight = status == NavigationStatus.ON_ROUTE
+				? RouteProgress.distanceToNextRedlight(network, plan, currentLeg, distanceToNext)
+						.orElse(Double.NaN) : Double.NaN;
+		boolean insideRedlight = status == NavigationStatus.ON_ROUTE
+				&& network.controlPoints().get(leg.to()) != null
+				&& network.controlPoints().get(leg.to()).isRedlight()
+				&& isInsideControlPoint(player, network, leg.to());
 		snapshot = new NavigationSnapshot(
 				name(network, plan.destination()),
 				name(network, leg.to()),
 				instruction,
-				distanceToNext,
+				railNames,
+				nextRedlight,
+				insideRedlight,
 				remaining,
 				plan.legs().size() - currentLeg - 1,
 				status);
@@ -253,14 +270,14 @@ public final class ClientNavigator {
 	private static NavigationSnapshot uncertain(RailwayNetwork network, PhysicalRouteLeg leg) {
 		return new NavigationSnapshot(name(network, plan.destination()), name(network, leg.to()),
 				Component.translatable("railwaygps.instruction.uncertain"),
-				Double.NaN, Double.NaN, 0, NavigationStatus.UNCERTAIN);
+				"", Double.NaN, false, Double.NaN, 0, NavigationStatus.UNCERTAIN);
 	}
 
 	private static NavigationSnapshot pending(RailwayNetwork network, String destination, boolean noRoute) {
 		return new NavigationSnapshot(name(network, destination), name(network, destination),
 				Component.translatable(noRoute ? "railwaygps.instruction.no_route"
 						: "railwaygps.instruction.waiting_direction"),
-				Double.NaN, Double.NaN, 0, NavigationStatus.UNCERTAIN);
+				"", Double.NaN, false, Double.NaN, 0, NavigationStatus.UNCERTAIN);
 	}
 
 	private static Component instruction(LocalPlayer player, RailwayNetwork network, PhysicalRouteLeg leg,

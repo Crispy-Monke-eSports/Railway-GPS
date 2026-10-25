@@ -6,7 +6,9 @@ public record NavigationSnapshot(
 		String destination,
 		String nextNode,
 		Component instruction,
+		String railNames,
 		double distanceToNext,
+		boolean insideRedlight,
 		double distanceRemaining,
 		int junctionsRemaining,
 		NavigationStatus status

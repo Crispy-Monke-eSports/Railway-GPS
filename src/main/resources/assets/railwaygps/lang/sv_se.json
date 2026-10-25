@@ -1,5 +1,8 @@
 {
   "railwaygps.hud.next": "Nästa: %s  •  %s block",
+  "railwaygps.hud.next_redlight": "Nästa rödljus: %s block",
+  "railwaygps.hud.no_redlight": "Inga fler rödljus",
+  "railwaygps.hud.inside_redlight": "I rödljus",
   "railwaygps.hud.remaining": "Kvar: %s block  •  %s anslutningar",
   "railwaygps.hud.title": "RAILWAY GPS  •  %s",
   "railwaygps.instruction.arrived": "Framme vid destinationen",
@@ -40,6 +43,7 @@
   "railwaygps.nav.start.pending": "%s vald; väntar på stabil rörelse med gruvvagnen",
   "railwaygps.nav.start.unknown_destination": "Okänd destination '%s'",
   "railwaygps.nav.status": "Destination: %s, nästa: %s, %s block kvar (%s)",
+  "railwaygps.nav.status.simple": "Destination: %s (%s)",
   "railwaygps.nav.status.arrived": "framme",
   "railwaygps.nav.status.on_route": "på rätt spår",
   "railwaygps.nav.status.uncertain": "osäker position",
