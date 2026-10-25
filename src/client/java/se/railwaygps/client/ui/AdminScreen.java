@@ -22,7 +22,7 @@ public final class AdminScreen extends Screen {
 		}
 		int width = Math.min(320, this.width - 40);
 		int left = (this.width - width) / 2;
-		int y = 68;
+		int y = 58;
 		addRenderableWidget(Button.builder(Component.translatable("railwaygps.admin.zones"), button -> {
 			minecraft.gui.setScreen(null);
 			RailwayEditor.open();
@@ -30,13 +30,16 @@ public final class AdminScreen extends Screen {
 		int proposals = TrackPairingAnalyzer.proposals(ClientRailwayNetwork.network()).size();
 		addRenderableWidget(Button.builder(Component.translatable("railwaygps.admin.pairings", proposals),
 				button -> minecraft.gui.setScreen(new PairingScreen()))
-				.bounds(left, y + 32, width, 24).build());
+				.bounds(left, y + 28, width, 24).build());
 		addRenderableWidget(Button.builder(Component.translatable("railwaygps.admin.directions"),
 				button -> minecraft.gui.setScreen(new TrackDirectionScreen()))
-				.bounds(left, y + 64, width, 24).build());
+				.bounds(left, y + 56, width, 24).build());
 		addRenderableWidget(Button.builder(Component.translatable("railwaygps.admin.survey"),
 				button -> minecraft.gui.setScreen(new SurveyScreen()))
-				.bounds(left, y + 96, width, 24).build());
+				.bounds(left, y + 84, width, 24).build());
+		addRenderableWidget(Button.builder(Component.translatable("railwaygps.admin.validation"),
+				button -> minecraft.gui.setScreen(new ValidationScreen()))
+				.bounds(left, y + 112, width, 24).build());
 		addRenderableWidget(Button.builder(Component.translatable("gui.back"),
 				button -> minecraft.gui.setScreen(new NavigationScreen()))
 				.bounds(left, this.height - 42, width, 20).build());

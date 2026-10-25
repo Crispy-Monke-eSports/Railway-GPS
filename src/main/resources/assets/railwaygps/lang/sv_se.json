@@ -24,6 +24,7 @@
   "railwaygps.admin.pairings": "Förslag på parallellspår (%s)",
   "railwaygps.admin.directions": "Verifiera färd på befintlig rälsgeometri",
   "railwaygps.admin.survey": "Inventera fysisk räls",
+  "railwaygps.admin.validation": "Valideringsrapport",
   "railwaygps.admin.subtitle": "Validerade verktyg för det fysiska järnvägsnätet",
   "railwaygps.admin.title": "Railway GPS-administration",
   "railwaygps.admin.zones": "Markera en stations- eller rödljuszon",
@@ -81,5 +82,10 @@
   "railwaygps.survey.status.recording": "Spelar in och validerar varje rälsblock…",
   "railwaygps.survey.status.save_failed": "Kunde inte spara: %s",
   "railwaygps.survey.subtitle": "Registrera sammanhängande räls utan att namnge varje spår",
-  "railwaygps.survey.title": "Rälsinventering"
+  "railwaygps.survey.title": "Rälsinventering",
+  "railwaygps.validation.clean": "Inga valideringsfel eller varningar i den aktiva revisionen",
+  "railwaygps.validation.hide_overlay": "Dölj nätet i världen",
+  "railwaygps.validation.revision": "Aktiv revision %s",
+  "railwaygps.validation.show_overlay": "Visa berört nät i världen",
+  "railwaygps.validation.title": "Nätverksvalidering"
 }

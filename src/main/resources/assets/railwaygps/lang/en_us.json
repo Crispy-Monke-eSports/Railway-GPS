@@ -24,6 +24,7 @@
   "railwaygps.admin.pairings": "Parallel-track proposals (%s)",
   "railwaygps.admin.directions": "Verify travel on existing track geometry",
   "railwaygps.admin.survey": "Survey physical rails",
+  "railwaygps.admin.validation": "Validation report",
   "railwaygps.admin.subtitle": "Validated tools for the physical railway network",
   "railwaygps.admin.title": "Railway GPS administration",
   "railwaygps.admin.zones": "Select a station or redlight zone",
@@ -81,5 +82,10 @@
   "railwaygps.survey.status.recording": "Recording and validating every rail block…",
   "railwaygps.survey.status.save_failed": "Could not save: %s",
   "railwaygps.survey.subtitle": "Record connected rail geometry without naming every track",
-  "railwaygps.survey.title": "Rail survey"
+  "railwaygps.survey.title": "Rail survey",
+  "railwaygps.validation.clean": "No validation errors or warnings in the active revision",
+  "railwaygps.validation.hide_overlay": "Hide network overlay",
+  "railwaygps.validation.revision": "Active revision %s",
+  "railwaygps.validation.show_overlay": "Show affected network",
+  "railwaygps.validation.title": "Network validation"
 }
