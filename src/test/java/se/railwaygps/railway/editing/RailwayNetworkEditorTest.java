@@ -96,6 +96,36 @@ class RailwayNetworkEditorTest {
 	}
 
 	@Test
+	void guiCanCreateRedlightPassageWithoutSupplyingIdsOrUnverifiedDirections() throws Exception {
+		RailwayNetwork network = withThreeControlPoints();
+		network = RailwayNetworkEditor.addRecordedTrack(network, "into_center", "west", "center", "minecraft:overworld",
+				List.of(point(2, 64, 0), point(9, 64, 0)));
+		network = RailwayNetworkEditor.addRecordedTrack(network, "out_of_center", "center", "east", "minecraft:overworld",
+				List.of(point(11, 64, 0), point(18, 64, 0)));
+		TraversalRef incoming = new TraversalRef("into_center", TrackDirection.FORWARD);
+		TraversalRef outgoing = new TraversalRef("out_of_center", TrackDirection.FORWARD);
+
+		assertEquals(List.of(incoming), RedlightPassageOptions.incoming(network, "center"));
+		assertEquals(List.of(outgoing), RedlightPassageOptions.outgoing(network, "center"));
+		RailwayNetwork updated = RailwayNetworkEditor.addRedlightPassage(network, "center",
+				incoming, outgoing, "Tryck på knappen");
+		assertEquals(1, updated.transitions().size());
+		assertTrue(updated.transitions().keySet().iterator().next().startsWith("transition-"));
+		assertEquals("Tryck på knappen", updated.transitions().values().iterator().next().instruction());
+		assertTrue(updated.transitions().values().iterator().next().enabled());
+
+		RailwayNetwork sameNetwork = updated;
+		assertThrows(IllegalArgumentException.class, () -> RailwayNetworkEditor.addRedlightPassage(
+				sameNetwork, "center", incoming, outgoing, null));
+		assertThrows(IllegalArgumentException.class, () -> RailwayNetworkEditor.addRedlightPassage(
+				sameNetwork, "west", incoming, outgoing, null));
+		assertThrows(IllegalArgumentException.class, () -> RailwayNetworkEditor.addRedlightPassage(
+				sameNetwork, "center", new TraversalRef("into_center", TrackDirection.REVERSE), outgoing, null));
+		assertThrows(IllegalArgumentException.class, () -> RailwayNetworkEditor.addRedlightPassage(
+				sameNetwork, "center", outgoing, incoming, null));
+	}
+
+	@Test
 	void verifiesReverseTravelOnTheSameGeometryWithoutCreatingOrPairingTracks() throws Exception {
 		RailwayNetwork network = RailwayNetworkEditor.addRecordedTrack(withControlPoints(), "single",
 				"west", "east", "minecraft:overworld", List.of(point(2, 64, 0), point(8, 64, 0)));

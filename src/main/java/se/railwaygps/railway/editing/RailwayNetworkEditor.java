@@ -178,6 +178,28 @@ public final class RailwayNetworkEditor {
 		return validated(copy(network, network.controlPoints(), network.sections(), network.tracks(), transitions));
 	}
 
+	/** Creates a GUI-managed redlight passage without asking the player for opaque IDs. */
+	public static RailwayNetwork addRedlightPassage(RailwayNetwork network, String controlPointId,
+			TraversalRef incoming, TraversalRef outgoing, String instruction) throws NetworkValidationException {
+		ControlPoint point = requireControlPoint(network, controlPointId);
+		if (!point.isRedlight()) throw new IllegalArgumentException("Choose a redlight control point");
+		if (incoming == null || !RedlightPassageOptions.incoming(network, controlPointId).contains(incoming)) {
+			throw new IllegalArgumentException("Incoming track/direction does not reach this redlight");
+		}
+		if (outgoing == null || !RedlightPassageOptions.outgoing(network, controlPointId).contains(outgoing)) {
+			throw new IllegalArgumentException("Outgoing track/direction does not leave this redlight");
+		}
+		boolean duplicate = network.transitions().values().stream().anyMatch(existing ->
+				existing.controlPointId().equals(controlPointId)
+						&& existing.incoming().equals(incoming) && existing.outgoing().equals(outgoing));
+		if (duplicate) throw new IllegalArgumentException("This redlight passage already exists");
+		String id;
+		do {
+			id = "transition-" + UUID.randomUUID().toString().replace("-", "");
+		} while (network.transitions().containsKey(id));
+		return addTransition(network, id, controlPointId, incoming, outgoing, instruction);
+	}
+
 	/** Toggles routability while retaining the verified transition identity and instruction. */
 	public static RailwayNetwork setTransitionEnabled(RailwayNetwork network, String id, boolean enabled)
 			throws NetworkValidationException {

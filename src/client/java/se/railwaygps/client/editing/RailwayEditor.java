@@ -1,6 +1,7 @@
 package se.railwaygps.client.editing;
 
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.event.player.AttackBlockCallback;
 import net.fabricmc.fabric.api.event.player.UseBlockCallback;
 import net.minecraft.client.Minecraft;
@@ -11,12 +12,14 @@ import net.minecraft.world.InteractionResult;
 import se.railwaygps.RailwayGps;
 import se.railwaygps.client.inspector.RailwayWorldOverlay;
 import se.railwaygps.model.TrackPoint;
+import se.railwaygps.network.ZoneCornerPayload;
 import se.railwaygps.railway.model.ZoneBox;
 
 /** SimpleBlueprints-inspired in-world administration mode. */
 public final class RailwayEditor {
 	private static final Identifier HUD_ID = Identifier.fromNamespaceAndPath(RailwayGps.MOD_ID, "editor");
 	private static boolean enabled;
+	private static boolean creatingRedlight;
 	private static BlockPos first;
 	private static BlockPos second;
 
@@ -41,8 +44,15 @@ public final class RailwayEditor {
 	}
 
 	public static void open() {
+		open(false);
+	}
+
+	public static void open(boolean redlight) {
+		creatingRedlight = redlight;
 		setEnabled(true);
 	}
+
+	public static boolean creatingRedlight() { return creatingRedlight; }
 
 	public static void finishSelection() {
 		enabled = false;
@@ -61,6 +71,7 @@ public final class RailwayEditor {
 		return (first == null ? "—" : format(first)) + " → " + (second == null ? "—" : format(second));
 	}
 	public static void discardSelection() {
+		creatingRedlight = false;
 		first = null;
 		second = null;
 		RailwayWorldOverlay.setSelectionPreview(null);
@@ -80,7 +91,7 @@ public final class RailwayEditor {
 	private static void selectFirst(BlockPos position) {
 		first = position.immutable();
 		second = null;
-		sendPositionCommand("rgps zone first", first);
+		sendCorner(true, first);
 		updatePreview();
 	}
 
@@ -92,14 +103,14 @@ public final class RailwayEditor {
 			return;
 		}
 		second = position.immutable();
-		sendPositionCommand("rgps zone second", second);
+		sendCorner(false, second);
 		updatePreview();
 	}
 
-	private static void sendPositionCommand(String command, BlockPos position) {
+	private static void sendCorner(boolean firstCorner, BlockPos position) {
 		Minecraft client = Minecraft.getInstance();
 		if (client.getConnection() != null) {
-			client.getConnection().sendCommand("%s %d %d %d".formatted(command,
+			ClientPlayNetworking.send(new ZoneCornerPayload(firstCorner,
 					position.getX(), position.getY(), position.getZ()));
 		}
 	}
@@ -131,7 +142,8 @@ public final class RailwayEditor {
 		graphics.text(client.font, Component.translatable("railwaygps.editor.selection",
 				first == null ? "—" : format(first), second == null ? "—" : format(second)),
 				x + 10, y + 39, 0xFF9EABB3, false);
-		if (second != null) graphics.text(client.font, Component.translatable("railwaygps.editor.create_hint"),
+		if (second != null) graphics.text(client.font, Component.translatable(
+				creatingRedlight ? "railwaygps.editor.create_redlight_hint" : "railwaygps.editor.create_hint"),
 				x + 10, y + 54, 0xFF65D18A, false);
 	}
 

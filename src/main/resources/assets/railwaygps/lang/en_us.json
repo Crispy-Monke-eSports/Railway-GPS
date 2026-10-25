@@ -146,5 +146,25 @@
   ,"railwaygps.station.select": "Select two opposite corners in the world"
   ,"railwaygps.station.selection": "Zone: %s"
   ,"railwaygps.station.subtitle": "One name and one two-corner zone"
-  ,"railwaygps.station.title": "Create station"
+  ,"railwaygps.station.title": "Create station",
+  "railwaygps.editor.create_redlight_hint": "Press R to review and create the redlight",
+  "railwaygps.redlight.create": "Create redlight zone",
+  "railwaygps.redlight.create_title": "Create redlight",
+  "railwaygps.redlight.create_name": "Redlight name",
+  "railwaygps.redlight.create_name_hint": "E.g. Central Bridge signal",
+  "railwaygps.redlight.create_select": "Select two corners of the redlight zone",
+  "railwaygps.redlight.create_subtitle": "Select the zone and name it; passages can be added afterwards",
+  "railwaygps.redlight.create_help": "Survey tracks connected to this redlight before adding passages",
+  "railwaygps.redlight.create_error": "Could not create redlight: %s",
+  "railwaygps.redlight.created": "Created redlight %s",
+  "railwaygps.redlight.add_passage": "Add redlight passage",
+  "railwaygps.redlight.create_passage": "Create passage",
+  "railwaygps.redlight.create_passage_subtitle": "Choose redlight, incoming rail and outgoing rail",
+  "railwaygps.redlight.passage_created": "Redlight passage created",
+  "railwaygps.redlight.choose_control": "Redlight: %s (%s/%s)",
+  "railwaygps.redlight.choose_incoming": "Incoming: %s (%s/%s)",
+  "railwaygps.redlight.choose_outgoing": "Outgoing: %s (%s/%s)",
+  "railwaygps.redlight.no_controls": "Create a redlight zone first",
+  "railwaygps.redlight.no_tracks": "Survey incoming and outgoing rails at the selected redlight",
+  "railwaygps.redlight.page": "Page %s of %s"
 }
