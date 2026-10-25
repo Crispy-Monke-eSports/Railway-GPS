@@ -37,7 +37,7 @@
   "railwaygps.nav.not_active": "Navigation is not active",
   "railwaygps.nav.start.no_route": "No permitted railway route from %s to %s",
   "railwaygps.nav.start.no_route_from_track": "No permitted route from the current physical track to %s",
-  "railwaygps.nav.start.not_near_node": "Start navigation near a registered station or junction",
+  "railwaygps.nav.start.not_near_node": "Start navigation on registered rails",
   "railwaygps.nav.start.not_near_track": "Place the minecart on a registered physical track before starting navigation",
   "railwaygps.nav.start.started": "Navigating to %s",
   "railwaygps.nav.start.pending": "%s selected; waiting for stable minecart movement",
@@ -56,11 +56,11 @@
   "railwaygps.ui.tools": "Tools",
   "railwaygps.ui.empty": "No destinations match the search",
   "railwaygps.ui.kind.dimension_gate": "Dimension gate",
-  "railwaygps.ui.kind.junction": "Junction",
+  "railwaygps.ui.kind.junction": "Redlight",
   "railwaygps.ui.kind.station": "Station",
   "railwaygps.ui.kind.terminal": "Terminal",
   "railwaygps.ui.search": "Search destination",
-  "railwaygps.ui.search_hint": "Search stations and junctions…",
+  "railwaygps.ui.search_hint": "Search stations…",
   "railwaygps.ui.start": "Start navigation",
   "railwaygps.ui.stop": "Stop",
   "railwaygps.ui.route_off": "3D route: Off",
@@ -102,6 +102,7 @@
   "railwaygps.survey.metrics": "%s rail blocks · %s control points · %s blocks travelled · %s seconds",
   "railwaygps.survey.safety": "Nothing is published until the complete rail path passes validation",
   "railwaygps.survey.start": "Start survey",
+  "railwaygps.survey.hud.recording": "Recording · %s blocks",
   "railwaygps.survey.status.cancelled": "Survey cancelled; nothing was saved",
   "railwaygps.survey.status.disconnected": "Disconnected rail geometry at %s; nothing was saved",
   "railwaygps.survey.status.finish_zone": "Drive into a different control-point zone before finishing",
@@ -126,7 +127,8 @@
   ,"railwaygps.redlight.instruction_hint": "E.g. Choose the button for Martyrön"
   ,"railwaygps.redlight.off": "Off"
   ,"railwaygps.redlight.on": "On"
-  ,"railwaygps.redlight.row": "%s · %s → %s · %s"
+  ,"railwaygps.redlight.row": "%s · %s → %s · %s",
+  "railwaygps.redlight.page": "Page %s of %s"
   ,"railwaygps.redlight.saved": "Validated redlight revision published"
   ,"railwaygps.redlight.save_instruction": "Save literal instruction"
   ,"railwaygps.redlight.saving": "Validating and publishing…"
