@@ -13,12 +13,12 @@ Den här specifikationen beskriver den önskade lösningen utan krav på bakåtk
 - **Tre enkla användarbegrepp:** stationer (enda destinationerna), rödljus (vägval i en black box) och namn på valfria rälssträckor (t.ex. Riksettan och Centralbron). **Ingen separat terminaltyp, inget plattformssystem och inga extra obligatoriska stationsobjekt.**
 - **Station:** ett namngivet stoppställe direkt på rälsen, där spåret tar slut eller där vagnen kan stanna och sedan fortsätta/vända. **Stationsnamn måste vara unika på hela servern, även mellan dimensioner** (jämför efter trimning utan skillnad på stora/små bokstäver). **Hela den markerade stationszonen räknas som stationen, inklusive samtliga rälslinjer innanför.** Ankomst när minecarten når zonen via en verifierad giltig rutt bekräftas **även när vagnen rullar**; inget manuellt spårval i stationszonen krävs. Visa **Framme** tills spelaren lämnar minecarten; avsluta då navigeringen automatiskt.
 - **Osäker position:** visa destination och **Osäker position**, men **inga sväng- eller knappinstruktioner** förrän rätt spår identifierats.
-- **Survey:** starta var som helst på rälsen; hela inspelningen får publiceras **direkt och atomiskt** vid `finish` bara när anslutningen till det registrerade nätet och övrig validering är säkra. **När UI-knappen Avsluta/publicera har behandlats visas ett kort resultat** med antal faktiskt **publicerade fysiska spår och verifierade rödljusövergångar**. Vid fel visas **vad som behöver rättas**, utan att något publiceras. Ingen obligatorisk manuell publiceringsbekräftelse eller lång rapportskärm.
+- **Survey:** starta var som helst på rälsen via `R → Verktyg → Inspelning`. **Under pågående inspelning visas enbart en liten HUD-status med `Spelar in` och tillryggalagd uppmätt sträcka i block**; ingen gul inspelningslinje i världen krävs eller visas automatiskt. Hela inspelningen får publiceras **direkt och atomiskt** vid `finish` bara när anslutningen till nätet och övrig validering är säkra. **Efter Avsluta/publicera** visas ett kort resultat med antal faktiskt publicerade fysiska spår och verifierade rödljusövergångar; vid fel visas vad som behöver rättas. Ingen obligatorisk publiceringsbekräftelse eller lång rapportskärm.
 - **Parallella spårpar:** geometribaserade förslag, alltid **uttryckligt godkännande från administratör**; annars förblir spåren självständiga.
 - **HUD-namn:** visa en **huvudled plus högst ett lokalt namn**, t.ex. `Riksettan · Centralbron`, när de finns.
 - **Administratörsinstruktioner:** visas **ordagrant**, oberoende av spelarens språk; endast inbyggda standardtexter översätts.
 - **Behörigheter:** separata serverrättigheter för inspektion, namngivning, inspelning samt administration/publicering.
-- **Rödljus:** endast in-/utgående spår, verifierade vägval och instruktioner. Ingen intern räls, redstone-modell eller genomfartskostnad.
+- **Rödljus:** endast in-/utgående spår, verifierade vägval och instruktioner. **Varje verifierad riktad infart→utfart-övergång har en egen enkel På/Av-knapp i `R → Verktyg → Adminverktyg → Rödljus`; Av bevarar övergången men gör den omedelbart otillåten för navigation.** Ingen enda På/Av-knapp för hela rödljuset krävs. Ingen intern räls, redstone-modell eller genomfartskostnad.
 - **Destination före ombordstigning:** spelaren får välja en station **i sin aktuella dimension** i förväg. Valet förblir väntande tills spelaren sitter i en minecart och **verklig, stabil rörelse på säkert identifierad registrerad räls visar färdriktningen**; först då aktiveras ruttberäkning och vägledning. Inga väganvisningar till fots eller i en stillastående vagn.
 - **Avstigning:** **all** avstigning avslutar en aktiv navigation omedelbart, även **före** ankomst; automatisk återupptagning ska inte ske.
 - **Rödljusinstruktionens tidpunkt:** visa vägvalet när ett rödljus **börjar närma sig**, behåll instruktionen under passagen genom dess zon och avsluta/byta den när rätt utgående räls har bekräftats; vid osäker position gäller alltid regeln om att dölja instruktioner.
@@ -223,13 +223,13 @@ inkommande passage → kontrollpunkt → utgående passage
 
 Övergången kan innehålla:
 
-- tillåten/avstängd status;
+- **egen beständig På/Av-status för just denna verifierade riktade infart→utfart-övergång**, separat från dess verifiering (Av tar inte bort identitet, instruktion eller observerad historik);
 - verifierad identifiering av infarts- och utfartsport, **utan att lagra intern rälsgeometri**;
 - kontroll-/knappinstruktion;
 - ordagrann administratörsskriven instruktion (inte automatiskt översatt);
 - källa, exempelvis observerad inspelning eller administratörsbeslut.
 
-Att två spår möter samma kontrollzon betyder inte att övergången mellan dem automatiskt är möjlig.
+Att två spår möter samma kontrollzon betyder inte att övergången mellan dem automatiskt är möjlig. **En användare med administration/publicering kan i rödljusets UI slå På/Av varje redan verifierad enskild övergång**, med tydlig infart och utfart. Valet publiceras genom samma validerade/atomiska revisionssystem som övriga adminändringar. **Avstängda övergångar finns kvar som verifierade objekt men får aldrig väljas av ruttberäkningen eller visas som en användbar utgång.** På återaktiverar den tidigare verifierade övergången utan en ny inspelning, så länge nätverket fortfarande är giltigt. Pågående resor planeras automatiskt om till kortaste kvarvarande giltiga väg eller visar `Ingen giltig väg till stationen`; ingen övergripande rödljusströmbrytare krävs.
 
 ### 5.6 Namnlager
 
@@ -364,6 +364,7 @@ Arbetsflödet är:
 4. Låt moddet föreslå portar vid zonens gräns.
 5. Verifiera observerade möjliga övergångar (administratörsbeslut behövs om observationen är osäker).
 6. Lägg vid behov till kontrollinstruktioner.
+7. Visa **en enkel På/Av-knapp per verifierad infart→utfart-övergång** (med namngiven/markerad in- och utfart) i **`R → Verktyg → Adminverktyg → Rödljus`**. Bara en administratör kan ändra dessa. **Av bevarar övergången, men blockerar den för GPS-rutter**; På får bara godkännas om den fortfarande är verifierad och giltig. Ingen På/Av-knapp för att stänga hela rödljuset behövs.
 
 **Sekundärt exempel för tekniskt bruk**, inte ordningen i det normala UI-flödet:
 
@@ -386,7 +387,7 @@ Validera att zonen är giltig och stationsnamnet unikt. **Flera rälslinjer i sa
 
 ### 7.4 Spela in fysisk räls
 
-En användare med **inspelningsbehörighet** får via **Railway GPS → Verktyg → Inspelning** använda UI-knapparna **Starta, Status, Avsluta/publicera och Avbryt**. Den får starta en lång survey **var som helst på verklig räls**, även mellan stationer och rödljus och utanför registrerade zoner. Start i en kontrollpunktszon krävs **inte**. Inspelningen får passera flera rödljus utan omstart. **Före publicering vid `finish` måste systemet säkert kunna koppla hela inspelningen till det registrerade nätet**, inklusive start-/slutanslutningar och rätt fysisk räls/riktning. Om det inte går ska hela inspelningen avvisas, utan att skapa påhittade kontrollpunkter.
+En användare med **inspelningsbehörighet** får via **Railway GPS → Verktyg → Inspelning** använda UI-knapparna **Starta, Status, Avsluta/publicera och Avbryt**. När inspelningen är aktiv visas **en liten, tydlig HUD: `Spelar in · [tillryggalagd sträcka] block`**, där avståndet räknas från faktiskt uppmätt resa och inte från fågelvägen mellan start och slut. **Ingen live-ritad inspelningslinje i Minecraft-världen är del av standardvyn.** Den får starta en lång survey **var som helst på verklig räls**, även mellan stationer och rödljus och utanför registrerade zoner. Start i en kontrollpunktszon krävs **inte**. Inspelningen får passera flera rödljus utan omstart. **Före publicering vid `finish` måste systemet säkert kunna koppla hela inspelningen till det registrerade nätet**, inklusive start-/slutanslutningar och rätt fysisk räls/riktning. Om det inte går ska hela inspelningen avvisas, utan att skapa påhittade kontrollpunkter.
 
 **Följande kommandon är sekundära alternativ till UI-knapparna**, inte krav på operatörsbehörighet eller på kommandokunskap:
 
@@ -470,7 +471,7 @@ Inspelningen sker på serversidan och kopplas till den **inspelningsbehöriga** 
 - Undvik duplicerade punkter när vagnen står stilla.
 - Registrera passage genom kontrollzoner med tidsordning och riktning. Rödljusens inre är **opaque**: logga infarts-/utfartsport och observerat vägval, inte intern rälsgeometri.
 - Tillåt **survey-start var som helst på verklig räls**, även utan registrerad zon vid start. Kontrollera säkert mot nätets befintliga fysiska spår före publicering.
-- Visa den inspelade linjen live på administratörens klient.
+- Visa under **aktiv survey** en **liten inspelnings-HUD** med `Spelar in` och tillryggalagd uppmätt sträcka i block för den inspelningsbehöriga spelaren, även om denne inte är administratör. Uppdatera bara med faktiskt uppmätt rörelse; dra inga påhittade avstånd över samplingsluckor eller modellerade rödljusinteriörer. **Kräv inte och visa inte automatiskt en inspelningslinje i världen**. När inspelningen slutar/avbryts försvinner inspelningsstatusen.
 
 ### 8.2 Efterbearbetning
 
@@ -609,8 +610,7 @@ Klienten ska kunna visa:
 - tillåtna övergångar genom rödljus;
 - namnlager och deras exakta intervall;
 - aktiv resväg och valt fysiskt spår;
-- pågående inspelning;
-- utkast och felaktig geometri.
+- utkast och felaktig geometri (i behörighetsstyrd inspektions-/adminvy). **Aktiv survey visas i stället som liten status-HUD och tillryggalagd sträcka, utan standardritad live-inspelningslinje.**
 
 Föreslagna standarder:
 
@@ -624,7 +624,6 @@ Föreslagna standarder:
 | Rödljus | Orange zon |
 | Otillåten övergång | Rött kryss |
 | Fel eller lös geometri | Röd markerad linje |
-| Pågående inspelning | Gul linje |
 
 Färger, opacitet och linjemönster ska kunna anpassas och inte vara den enda informationsbäraren.
 
@@ -658,7 +657,7 @@ När ett objekt väljs ska det kunna:
 ### 12.4 Visuell inspelning och redigering
 
 **Primär interaktion, fastställd i commit [`821880e`](https://github.com/Crispy-Monke-eSports/Railway-GPS/commit/821880e7f3909d3fee1bbf84063b51e3c949f703):** Railway GPS öppnas med en konfigurerbar tangent (`R` som standard) **direkt på en enkel navigeringssida**. Här finns destinationssökning/val, aktuell stationsdestination, start-/resestatus, byte/avslut av resa, egen visningsinställning och en tydlig **knapp `Verktyg`**. Knappen öppnar en **separat, behörighetsfiltrerad verktygsvy** för inspektion, namngivning, inspelning och administration och ska ha enkel återgång till navigeringssidan. Dessa verktyg visas **inte som obligatoriska toppflikar eller som en startsida full av adminfunktioner**. Det **SimpleBlueprints-inspirerade UI-systemet**, med sökbara skärmar, behörighetsstyrda verktygsknappar, direkta åtgärder, visuell världmarkering och status-HUD, ska vara **huvudgränssnitt för spelare och administratörer**. Ingen regelbunden åtgärd får endast finnas via `/rgps`-kommando; sådana kommandon är sekundära alternativ för felsökning och avancerad användning och får inte erbjuda andra behörighets-/säkerhetsvägar. Vanliga spelare får en lättåtkomlig inställning för **visa/dölj planerad 3D-rutt**, med **av första gången** och sedan spelarens **lokalt sparade senaste val över både resor och spelstarter**, medan HUD alltid finns kvar vid aktiv navigering. De får en sökbar
-destinationslista med **enbart stationer i spelarens aktuella dimension** (spårslut ingår som stationer; rödljus och stationer i andra dimensioner är aldrig valbara destinationer) samt tydliga knappar för att
+destinationslista med **enbart stationer i spelarens aktuella dimension, alfabetiskt sorterade efter visningsnamn (skiftlägesoberoende)** (spårslut ingår som stationer; rödljus och stationer i andra dimensioner är aldrig valbara destinationer). **Sökning behåller samma alfabetiska ordning bland träffarna**, utan särskild sortering på avstånd eller senast valda station samt tydliga knappar för att
 välja eller **byta destination under pågående resa** eller avsluta aktiv/väntande navigation. Tekniska ID:n behöver inte användas. **Destinationsval till fots sparas som väntande val; aktiv vägledning startar automatiskt först när minecarten verkligen börjar röra sig med säkert matchad registrerad räls och observerad färdriktning.** Vid all avstigning avbryts aktiv navigation, utan automatisk återupptagning.
 
 Behöriga användare öppnar **Verktyg** från navigeringssidan och ser där **endast de inspektions-, namn-, inspelnings- och administrationsverktyg** som deras separata serverrättigheter tillåter. En inspektör ska kunna söka, filtrera, markera och visa tekniska objekt; en namnredaktör ska kunna göra hela start/slut-förhandsvisa-bekräfta-flödet; en survey-användare ska ha start/status/finish/cancel; en administratör ska kunna skapa/redigera stationer och redlights, kontrollera portar/övergångar, godkänna spårpar och hantera säkra revisioner/import-/exportåtgärder **direkt i UI:t**. Administratörer ser **Adminverktyg som ett alternativ inne i Verktyg-vyn**, inte på navigeringens startsida. Den öppnar redigeringsläget, som visar
@@ -666,7 +665,7 @@ aktuella musåtgärder och vald geometri i en HUD, i samma anda som verktygspale
 **stationsstoppzoner och rödljusens kontrollzoner** markerar administratören **första och andra hörnet** med tvåhörnsverktyget; en tredimensionell kontur visas
 omedelbart. **Hela stationszonen gäller för alla rälslinjer inom dess gränser**; admin behöver inte välja en enda räls, skapa plattformar eller dela upp stationen. `R` lämnar adminläget. Servern kontrollerar fortfarande behörighet och äger den sparade modellen.
 
-Under inspelning kan geometrin visas live och in- och utträde ur kontrollzoner markeras. Giltig inspelning publiceras **direkt** vid **Verktyg → Inspelning → Avsluta/publicera** efter full validering; en **kort resultatrad** visar faktiskt sparade antal spår och rödljusövergångar, exempelvis `Sparat: 4 spår, 2 rödljusövergångar`. Vid avvisning visas **konkreta korrigeringsbara fel** i UI:t och **0 publicerade objekt**. Ingen obligatorisk detaljerad rapport, extra granskning eller separat `survey confirm` krävs. Geometriska **spårparningsförslag** visas separat och måste bekräftas av behörig administratör innan parning kan sparas.
+**Under aktiv inspelning visas endast en liten HUD-rad med `Spelar in` och tillryggalagd sträcka i block**, inte en automatiskt ritad gul linje i världen. Inspelningsbehörighet räcker för HUD:en; ingen adminbehörighet behövs. Avslut/avbrott tar bort inspelningsstatusen. Giltig inspelning publiceras **direkt** vid **Verktyg → Inspelning → Avsluta/publicera** efter full validering; en **kort resultatrad** visar faktiskt sparade antal spår och rödljusövergångar, exempelvis `Sparat: 4 spår, 2 rödljusövergångar`. Vid avvisning visas **konkreta korrigeringsbara fel** i UI:t och **0 publicerade objekt**. Ingen obligatorisk detaljerad rapport, extra granskning eller separat `survey confirm` krävs. Geometriska **spårparningsförslag** visas separat och måste bekräftas av behörig administratör innan parning kan sparas.
 
 Vid punktbaserad namngivning ska startpunkt, slutpunkt, eventuella mellanpunkter och hela den beräknade spårvägen visas. Om flera kandidater finns ska användaren kunna växla mellan dem innan bekräftelse. Vald riktning, partiella ändintervall och **endast efter uttryckligt Ja medtagna, redan administratörsgodkända parallellspår** ska gå att särskilja visuellt.
 
@@ -800,7 +799,7 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 
 ### Fas 4 – Survey och fysisk nätbyggnad
 
-- **Inspelningsrollen hittar Starta, Status, Avsluta/publicera och Avbryt via navigeringssidans `Verktyg` → `Inspelning`**. Godkända surveys publiceras direkt/atomiskt när UI:s Avsluta/publicera används och ett **kort resultat anger antal sparade fysiska spår samt verifierade rödljusövergångar**; vid fel visas åtgärdbara orsaker och ingenting publiceras. **Ingen extra granskning/confirm** införs.
+- **Inspelningsrollen hittar Starta, Status, Avsluta/publicera och Avbryt via navigeringssidans `Verktyg` → `Inspelning`**. Under resan visas enbart **`Spelar in` och körd sträcka i en liten HUD**; ingen inspelningslinje i världen krävs. Godkända surveys publiceras direkt/atomiskt när UI:s Avsluta/publicera används och ett **kort resultat anger antal sparade fysiska spår samt verifierade rödljusövergångar**; vid fel visas åtgärdbara orsaker och ingenting publiceras. **Ingen extra granskning/confirm** införs.
 - Serversidig minecart-inspelning.
 - Strikt avbrott vid dismount eller annan sessionsförlust.
 - Långa inspelningar genom flera kontrollzoner.
@@ -811,7 +810,7 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 
 - **Verifiera varje färdriktning separat:** en inspelning bekräftar observerad riktning, medan motsatt riktning kräver egen inspelning eller uttryckligt administratörsgodkännande. Samma geometrilinje återanvänds på verkligt dubbelriktade enkelspår.
 - **Geometribaserade förslag på parallella spårpar och obligatoriskt uttryckligt administratörsgodkännande**; inga automatiska parningar.
-- Tillåtna/otillåtna rödljusövergångar.
+- **En egen På/Av-knapp för varje verifierad rödljusövergång** under `R → Verktyg → Adminverktyg → Rödljus`; Av blockerar rutten utan att radera verifieringen, På återaktiverar efter validering. Varje statusändring ger en säker ny nätverksrevision och omplanering av berörda aktiva rutter. Ingen huvudbrytare för hela rödljuset.
 - Kontrollinstruktioner för knappar och specialbyggen.
 
 ### Fas 6 – Namnlager
@@ -836,7 +835,7 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 - Startinstruktionen beräknas från den fysiska inkommande och utgående rälsen **utanför rödljusets zon**. Spelarens kamerariktning får aldrig användas för att avgöra vänster eller höger; **saknas säker rälsmatchning döljs sväng-/knappinstruktionen och Osäker position visas**.
 - Lokaliserad HUD med **både avstånd till nästa rödljus och återstående avstånd till stationen längs planerad räls**, **bokstavligt återgivna anpassade instruktioner**, **högst en huvudled plus ett lokalt namn**, och osäkerhetsstatus **utan obekräftade avstånd eller sväng-/knappinstruktioner**.
 - **Vid första användningen visas endast HUD**. Spelaren kan separat **slå på/av den planerade rutten som en 3D-linje över verklig yttre räls**, utan JourneyMap. **Lagra visningsvalet lokalt per spelare** mellan resor och omstarter; inga 3D-ritningar finns kvar efter navigeringens slut, men inställningen kvarstår.
-- **Sökning och destinationsval endast för stationer i spelarens aktuella dimension**; namn är fortsatt unika **serverövergripande** utan skiftlägesberoende. Samma dimensionsregel gäller meny, kommando och eventuell kartväljare.
+- **Sökning och destinationsval endast för stationer i spelarens aktuella dimension, alfabetiskt sorterade efter namn även bland sökträffar**; namn är fortsatt unika **serverövergripande** utan skiftlägesberoende. Samma dimensionsregel gäller meny, kommando och eventuell kartväljare.
 - **Destinationsval i förväg tillåts; i stillastående minecart väntar GPS:en på stabil, faktiskt observerad rörelseriktning på säkert registrerad räls innan aktiv rutt väljs**. Under en aktiv resa får spelaren **välja en annan station och omedelbart få ny kortaste giltiga rutt** utan att starta om. All avstigning avslutar navigation, även före ankomst.
 - **Automatiskt kortaste giltiga rutt, efter återstående verklig rälsträcka; ingen vägväljarmeny eller prioritet för namngivna leder.**
 - **Visa rödljusets vägval när det närmar sig, behåll det inne i zonen tills utfart bekräftats; dölj det alltid vid osäkerhet.**
@@ -901,6 +900,9 @@ En första komplett version av målarkitekturen ska demonstrera att:
 45. Var och en av de **fyra fristående behörigheterna** har **fullständiga in-game-UI-arbetsflöden** för sin roll: inspektion, namngivning av räls mellan två markeringar, fysisk survey med direkt/atomisk `finish`, respektive skapande/redigering av stationer/redlights och administratörsgodkännande av spårpar/revisioner. **Ingen av dessa normala funktioner kräver kommando**; sekundära kommandon och UI använder samma serverbehörigheter, validering och resultat.
 46. **`R` öppnar en enkel navigeringssida** där vanliga navigeringsfunktioner är direkt tillgängliga. **Knappen `Verktyg` öppnar separat de åtgärder spelaren har rätt till**, och användaren kan gå tillbaka till navigeringen. Inga obligatoriska toppflikar eller fullpackad verktygsstartsida krävs.
 47. **`Verktyg → Inspelning → Avsluta/publicera` publicerar en fullt giltig survey direkt och atomiskt** och visar **ett kort resultat med faktiskt sparat antal fysiska spår och verifierade rödljusövergångar**. En avvisad survey publicerar ingenting och visar i UI:t **begripliga, konkreta fel som behöver rättas**, utan obligatorisk detaljerad rapport, bekräftelsesteg eller kommando.
+48. **Stationslistan på `R`-sidans navigering är alfabetiskt sorterad efter stationsnamn**, efter filtrering på spelarens dimension och även vid sökning. Ingen avstånds- eller senast-vald-sortering används.
+49. **En pågående rälsinspelning visar en liten HUD-status `Spelar in` och uppmätt tillryggalagd sträcka i block**; ingen live-inspelningslinje i världen behövs eller aktiveras automatiskt, och statusen tas bort efter avslut eller avbrott.
+50. **Varje verifierad infart→utfart-övergång i ett rödljus har sin egen På/Av-knapp** i behörigt admin-UI. Av gör övergången otillgänglig för ruttberäkningen utan att radera verifiering/data; På återaktiverar efter validering. Pågående berörda resor omplaneras eller visar no-route. Ingen övergripande brytare för rödljuset behövs.
 
 ## 20. Återstående detaljbeslut
 
@@ -913,7 +915,7 @@ Följande **tekniska detaljer**, som inte får ändra de fastställda produktbes
 5. Exakt sekundär kommandosyntax och den **visuella detaljutformningen** av navigeringssidan/verktygsvyn. **UI-hierarkin är redan beslutad**: `R` visar navigering, knappen `Verktyg` leder till behöriga verktyg, och kommandon är sekundära.
 6. Exakta Fabric- och JourneyMap-API-versioner för målversionen.
 7. Om ruttberäkningen primärt görs på servern, klienten eller hybridmässigt.
-8. Hur tillfälliga avstängningar och enkelriktning under drift exponeras för administratörer.
+8. Hur statusändringar tekniskt versionshanteras och presenteras i detaljerna. **UI för tillfälliga avstängningar är beslutat: en På/Av-knapp per verifierad rödljusövergång, ingen huvudbrytare; ändringen får inte ta bort verifierad övergång.**
 9. Vilken databasimplementation och backupstrategi som bäst passar målservern.
 10. Hur kandidater mellan två markerade punkter **för namngivning** rangordnas och visuellt väljs när flera likvärdiga spårsträckor finns. Namn kopplas aldrig automatiskt till en otydlig förgrening.
 11. Hur de **redan beslutade** separata serverbehörigheterna representeras som permission-noder och tilldelas användare.
@@ -924,6 +926,6 @@ Railway GPS ska modellera verklig räls, inte bara namngivna linjer mellan punkt
 
 Namn är fristående lager. Riksettan kan löpa genom flera rödljus, Centralbron kan omfatta endast den stockmarkerade delen av två parallella spår och namnlösa anslutningar kan fortfarande användas fullt ut. En resa beräknas genom det gemensamma fysiska nätet och duplicerar inte spår för varje destinationskombination.
 
-**Det SimpleBlueprints-inspirerade Railway GPS-UI:t från commit `821880e` är huvudingången för både spelare och administratörer: `R` visar först en enkel navigeringssida, och `Verktyg` öppnar de behöriga extra funktionerna. Kommandon är valfria sekundära alternativ.** Klienten ska kunna göra nätet synligt på begäran: zoner, spår, riktningar, övergångar, namn, aktiv resväg och valideringsfel kan inspekteras i världen, styrt av separat inspektionsbehörighet. **Vid första användning ser vanliga spelare endast navigations-HUD; därefter styr spelarens sparade val om även den planerade 3D-rutten syns** utan JourneyMap. HUD visar båda avstånden till nästa rödljus och stationen, och stationer kan nås från båda verifierade riktningar på rätt räls. Spelaren får förvälja **en station i sin aktuella dimension** före ombordstigning, navigeringen startar först med säkert observerad riktning i minecart på registrerad räls, och **kan byta till annan station i samma dimension under aktiv resa utan omstart**. Om den valda stationen **tas bort** stoppas navigationen med tydligt meddelande. Spelarens val att rita sin aktiva 3D-rutt sparas lokalt mellan resor och spelstarter, med Av som förstagångsvärde. Om ingen giltig rutt finns behålls vald station med felmeddelande och automatiskt nytt försök vid relevant förändring; all avstigning avslutar aktiv resa. Kortaste giltiga rutt väljs automatiskt, instruktionerna för ett rödljus syns vid infarten och under passage, och stationsnamn måste vara unika på hela servern. JourneyMap använder samma modell men förblir valfritt. **En fullständigt validerad survey publiceras direkt vid `finish`; inga obligatoriska granskningsutkast krävs.** Oparade parallella spår kan publiceras som separata spår, men spårparning kräver alltid administratörsbekräftelse. Spelarnas destinationer är enbart stationer. Ankomst kräver att minecarten når **den valda stationszonen längs verifierad färdväg**, på vilket som helst av spåren i zonen, men inte stillastående vagn; **Framme visas tills spelaren kliver ur minecarten**, varpå navigeringen avslutas automatiskt. Osäkert spår döljer alla sväng-/knappinstruktioner, survey får starta var som helst på rälsen med säker nätanslutning, och HUD visar högst en huvudled plus ett lokalt namn.
+**Det SimpleBlueprints-inspirerade Railway GPS-UI:t från commit `821880e` är huvudingången för både spelare och administratörer: `R` visar först en enkel navigeringssida, och `Verktyg` öppnar de behöriga extra funktionerna. Kommandon är valfria sekundära alternativ.** Klienten ska kunna göra nätet synligt på begäran: zoner, spår, riktningar, övergångar, namn, aktiv resväg och valideringsfel kan inspekteras i världen, styrt av separat inspektionsbehörighet. **Vid första användning ser vanliga spelare endast navigations-HUD; därefter styr spelarens sparade val om även den planerade 3D-rutten syns** utan JourneyMap. HUD visar båda avstånden till nästa rödljus och stationen, och stationer kan nås från båda verifierade riktningar på rätt räls. Spelaren får förvälja **en station i sin aktuella dimension** före ombordstigning, navigeringen startar först med säkert observerad riktning i minecart på registrerad räls, och **kan byta till annan station i samma dimension under aktiv resa utan omstart**. Om den valda stationen **tas bort** stoppas navigationen med tydligt meddelande. Spelarens val att rita sin aktiva 3D-rutt sparas lokalt mellan resor och spelstarter, med Av som förstagångsvärde. Om ingen giltig rutt finns behålls vald station med felmeddelande och automatiskt nytt försök vid relevant förändring; all avstigning avslutar aktiv resa. Kortaste giltiga rutt väljs automatiskt, instruktionerna för ett rödljus syns vid infarten och under passage, och stationsnamn måste vara unika på hela servern. JourneyMap använder samma modell men förblir valfritt. **En fullständigt validerad survey publiceras direkt vid `finish`; inga obligatoriska granskningsutkast krävs.** Oparade parallella spår kan publiceras som separata spår, men spårparning kräver alltid administratörsbekräftelse. Spelarnas destinationer är enbart stationer och **sorteras alfabetiskt inom aktuell dimension**. Under survey visas **en liten HUD med `Spelar in` och tillryggalagd sträcka, inte en live-ritad inspelningslinje**. Administratörer kan **slå På/Av varje enskild verifierad rödljusövergång i Verktyg**, utan att radera den eller stänga hela rödljuset. Ankomst kräver att minecarten når **den valda stationszonen längs verifierad färdväg**, på vilket som helst av spåren i zonen, men inte stillastående vagn; **Framme visas tills spelaren kliver ur minecarten**, varpå navigeringen avslutas automatiskt. Osäkert spår döljer alla sväng-/knappinstruktioner, survey får starta var som helst på rälsen med säker nätanslutning, och HUD visar högst en huvudled plus ett lokalt namn.
 
 Moddet förblir vägledande och icke-ingripande. Det berättar vad spelaren ska göra men styr aldrig minecart, knappar, redstone eller växlar.
