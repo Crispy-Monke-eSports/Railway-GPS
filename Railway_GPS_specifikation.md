@@ -11,7 +11,7 @@ Den här specifikationen beskriver den önskade lösningen utan krav på bakåtk
 **Fastställda produktbeslut (2026-10-25):**
 - **UI först, kommandon i andra hand:** det **SimpleBlueprints-inspirerade UI-systemet från commit [`821880e`](https://github.com/Crispy-Monke-eSports/Railway-GPS/commit/821880e7f3909d3fee1bbf84063b51e3c949f703)** är moddets huvudsakliga ingång och arbetsflöde för **både spelare och alla fyra behörighetsroller**. Alla vanliga åtgärder ska gå att genomföra från in-game-UI och visuella verktyg, **utan kommandon eller tekniska ID:n**. Kommandon är **sekundära alternativ** för automation, felsökning och avancerad användning; de får inte vara ett obligatoriskt steg för spel eller administration.
 - **Tre enkla användarbegrepp:** stationer (enda destinationerna), rödljus (vägval i en black box) och namn på valfria rälssträckor (t.ex. Riksettan och Centralbron). **Ingen separat terminaltyp, inget plattformssystem och inga extra obligatoriska stationsobjekt.**
-- **Station:** ett namngivet stoppställe direkt på rälsen, där spåret tar slut eller där vagnen kan stanna och sedan fortsätta/vända. **Stationsnamn måste vara unika på hela servern, även mellan dimensioner** (jämför efter trimning utan skillnad på stora/små bokstäver). Ankomst vid rätt stoppunkt/stoppzon på rätt spår bekräftas **även när vagnen rullar**. Visa **Framme** tills spelaren lämnar minecarten; avsluta då navigeringen automatiskt.
+- **Station:** ett namngivet stoppställe direkt på rälsen, där spåret tar slut eller där vagnen kan stanna och sedan fortsätta/vända. **Stationsnamn måste vara unika på hela servern, även mellan dimensioner** (jämför efter trimning utan skillnad på stora/små bokstäver). **Hela den markerade stationszonen räknas som stationen, inklusive samtliga rälslinjer innanför.** Ankomst när minecarten når zonen via en verifierad giltig rutt bekräftas **även när vagnen rullar**; inget manuellt spårval i stationszonen krävs. Visa **Framme** tills spelaren lämnar minecarten; avsluta då navigeringen automatiskt.
 - **Osäker position:** visa destination och **Osäker position**, men **inga sväng- eller knappinstruktioner** förrän rätt spår identifierats.
 - **Survey:** starta var som helst på rälsen; hela inspelningen får publiceras **direkt och atomiskt** vid `finish` bara när anslutningen till det registrerade nätet och övrig validering är säkra. Ingen obligatorisk manuell publiceringsbekräftelse.
 - **Parallella spårpar:** geometribaserade förslag, alltid **uttryckligt godkännande från administratör**; annars förblir spåren självständiga.
@@ -31,7 +31,7 @@ Den här specifikationen beskriver den önskade lösningen utan krav på bakåtk
 - **Stillastående minecart:** ett valt stationsmål förblir väntande medan vagnen står stilla. GPS:en börjar inte vägleda förrän vagnen **faktiskt rör sig med säkert identifierad riktning på registrerad räls**. Spelarens blick, valfri riktning eller förmodad kortaste väg får inte användas för att gissa färdriktning.
 - **Namngivning av godkänt parallellt spårpar:** när ett annat fysiskt spår **redan är uttryckligen godkänt som par av administratör** erbjuds ett enkelt **ja/nej-val** om samma namn även ska gälla den rälsen. **Nej är förvalt**; annars namnges bara markerad räls. Inget val visas utan godkänt par, och namngivningsrollen får inte ändra parning eller riktningar.
 - **Notis vid omräkning:** när en aktiv rutt **faktiskt byts till en ny giltig rutt**, visa kort den lokaliserade texten **`Rutt omräknad`**, sedan nya instruktioner. Notisen kräver ingen bekräftelse och pausar ingenting. Om ingen rutt finns visas tidigare beslutade felet **`Ingen giltig väg till stationen`** i stället.
-- **Skapa station:** administratören markerar **två motsatta hörn i världen** för en **liten 3D-stoppzon** på verklig räls och ger stationen ett serverunikt namn. Validera rätt fysisk räls; om flera oberoende rälslinjer omfattas ska administratören välja vilken zonen hör till eller justera zonen. **Inga plattformar, terminaler eller komplexa stationsområden**, och ingen obligatorisk enkelklicksväg vid skapande.
+- **Skapa station:** administratören **markerar två motsatta hörn** för **en stationszon** och anger ett serverunikt namn. **Allt inom zonen hör till stationen, även om flera separata rälslinjer passerar där.** Ingen räls behöver pekas ut som stationens enda spår och flera spår är **inte** ett valideringsfel. Ingen plattform, terminal, delzon eller extra spårvalsmeny behövs. En zon skapar inte automatiskt kopplingar mellan skilda spår.
 - **Byta destination under resa:** spelaren får när som helst under aktiv färd **välja en annan station** och får då **direkt** en ny **kortaste verifierade giltiga rutt** från den säkert observerade aktuella positionen/riktningen, utan att först avsluta resan. Bytet ersätter den gamla destinationen/rutten; ingen ny resetyp införs och ingen användarbekräftelse krävs.
 - **Ingen giltig väg vid start eller destinationsbyte:** visa **`Ingen giltig väg till stationen`** och **behåll den valda stationen** som väntande resmål; **försök automatiskt igen när position/riktning kan verifieras på en ny giltig passage eller nätverket uppdaterats så att en rutt kan finnas**. Inga felaktiga körinstruktioner, inga ständiga omförsök varje tick och inget krav på manuellt `Försök igen`. **All avstigning avslutar även denna väntan** enligt tidigare beslut.
 - **Borttagen destinationsstation:** om den **valda stationens ID försvinner** ur en fullständigt verifierad serverrevision **under pågående resa**, avsluta navigationen direkt, rensa aktiv rutt/överlägg och visa en **tydlig lokaliserbar notis**, exempelvis `Stationen har tagits bort`. Behandla inte borttagen station som tillfälligt `Ingen giltig väg`, och välj aldrig en ersättningsstation automatiskt.
@@ -89,7 +89,7 @@ När två spår inte kan särskiljas säkert ska HUD visa den valda **destinatio
 |---|---|
 | **Kontrollpunkt** | Intern teknisk referens till en station eller ett rödljus; ingen ytterligare platstyp behöver visas för spelaren. |
 | **Zon** | Ett tredimensionellt område bestående av en eller flera boxar. |
-| **Station** | Namngivet stoppställe på rälsen, vid spårslut eller på ett genomgående spår; inget krav på plattformar. |
+| **Station** | Namngiven zon markerad med två hörn. **Alla rälslinjer inom zonen tillhör stationen**, utan plattformar eller krav på att välja ett särskilt stationsspår. |
 | **Rödljus (redlight)** | Kontrollpunkt där spår möts och vissa övergångar kan väljas. |
 | **Port** | En fysisk in- eller utgång där ett spår passerar kontrollpunktens gräns. |
 | **Spårsektion** | Fysisk korridor mellan två närliggande kontrollpunkter. |
@@ -136,7 +136,7 @@ Spelare utan Railway GPS ska kunna ansluta och spela normalt. Servern skickar en
 
 ### 5.1 Zoner
 
-En zon är dimensionsbunden och består av en eller flera axis-aligned bounding boxes. Rödljus kan ha en sammansatt zon för att identifiera infart och utfart. **Stationer använder en liten enkel tvåhörnsstoppzon kopplad till rätt räls**; inget komplext stationsområde eller plattformssystem krävs.
+En zon är dimensionsbunden och består av en eller flera axis-aligned bounding boxes. Rödljus kan ha en sammansatt zon för att identifiera infart och utfart. **Stationer använder en enkel zon markerad med två hörn; all räls inne i zonen hör till den stationen**. En station kräver inte en unik rälsanknytning, plattformar eller ett stationsområdessystem med delzoner.
 
 ```json
 {
@@ -160,11 +160,11 @@ Krav:
 
 ### 5.2 Stationer
 
-En **station** är en namngiven **liten stoppzon med två markerade motsatta 3D-hörn** direkt på en fysisk räls. Det kan vara ett spårslut eller ett genomgående spår där minecarten kan stanna och sedan fortsätta eller vända. Stationen kräver **inte** någon plattform, stationsbyggnad, flera spår eller ett stort stationsområde. **Ingen separat terminaltyp används:** ett spårslut är också en station.
+En **station** är en **namngiven 3D-zon markerad med två motsatta hörn**. **Alla rälslinjer innanför zonen räknas till samma station**, vare sig den omfattar ett spårslut, genomgående räls eller flera parallella spår. Administratören bestämmer zonens storlek genom hörnen. Ingen särskild per-spårstation, plattform, terminal eller underindelning krävs.
 
-Varje station har bara det som behövs för navigation: **unikt visningsnamn**, tekniskt ID, dimension samt en **liten 3D-stoppzon med två hörn, knuten till rätt fysisk räls**. Zonen skapas med det redan befintliga visuella tvåhörnsverktyget; en enda klickad punkt räcker inte i det beslutade stationsflödet. Om zonen täcker flera möjliga skilda rälslinjer måste rätt fysisk räls väljas tydligt eller zonen förminskas innan den sparas. Position och rälsidentitet ska skilja den från en eventuell närliggande parallell räls. **Ingen ankomstriktning ska behöva väljas för stationen:** den är tillgänglig från **båda håll på spåret**, under förutsättning att den aktuella färdriktningen och hela rutten är **separat verifierade och tillåtna**. Ett enkelriktat registrerat spår blir inte dubbelriktat bara för att det finns en station på det. **Två stationer får inte ha samma visningsnamn någonstans på servern**, även om de ligger i olika dimensioner. Vid skapande, byte av namn, import och nätverksvalidering avvisas namnkonflikter utan att någon station döps om automatiskt. Namn jämförs efter trimning och utan skillnad på stora/små bokstäver (t.ex. `Central` och ` central ` räknas som samma namn).
+Varje station består av ett **serverunikt visningsnamn**, tekniskt ID, dimension och **en tvåhörnsmarkerad 3D-zon**. Den är **inte knuten till en enda utvald fysisk räls**: varje verkligt rälssegment som passerar zonen kan leda till stationen när färdriktningen och färdvägen är verifierade. Ingen ankomstriktning väljs per station; ankomst är tillåten från varje verifierat spår och verifierad riktning som når zonen. Ett oregistrerat eller otillåtet spår blir inte routbart bara för att det ligger i zonen, och stationens zon sammanfogar aldrig separata fysiska spår eller skapar rödljusövergångar. Två stationer får **inte ha samma visningsnamn** någonstans på servern, även om de finns i olika dimensioner. Namn jämförs efter trimning och utan hänsyn till stora/små bokstäver; namnkonflikter vid skapande, ändring eller import avvisas.
 
-**Endast stationer i spelarens aktuella dimension är valbara destinationer**, även om nätverket innehåller stationer i andra dimensioner. GPS:en får beräkna ankomst till samma stationsstopp från **endera verifierade riktningen**, utan stationstyp, plattformsval eller separat ankomstriktningskonfiguration. Spelaren kan välja destination **innan ombordstigning**; valet är då väntande och ingen aktiv rutt eller svänginstruktion visas. Om spelaren sitter i en **stillastående** minecart på registrerad räls förblir stationsvalet väntande: eventuellt kan status **”Väntar på färdriktning”** visas, men ingen aktiv rutt eller sväng-/knappinstruktion. **Först när vagnen börjar röra sig med säkert, stabilt observerad riktning** väljer GPS:en automatiskt kortaste giltiga rutt från faktisk rälsposition och riktning och aktiverar vägledningen. Om färdriktning eller rätt registrerat spår inte kan avgöras ska GPS:en inte gissa. GPS:en markerar **Framme** så snart minecarten med säker färdhistorik når rätt station/stoppzon på rätt spår; ett fullständigt stopp eller låg hastighet krävs inte. När **Framme** väl har bekräftats ska texten ligga kvar även om vagnen fortsätter röra sig. **Vid all avstigning, även före ankomst, avslutas aktiv navigation omedelbart och navigations-HUD:en försvinner.** Ny resa kräver nytt destinationsval. En förbipassage på fel spår får inte utlösa ankomst.
+**Endast stationer i spelarens aktuella dimension är valbara destinationer**, även om nätverket innehåller stationer i andra dimensioner. GPS:en får beräkna ankomst till samma stationsstopp från **endera verifierade riktningen**, utan stationstyp, plattformsval eller separat ankomstriktningskonfiguration. Spelaren kan välja destination **innan ombordstigning**; valet är då väntande och ingen aktiv rutt eller svänginstruktion visas. Om spelaren sitter i en **stillastående** minecart på registrerad räls förblir stationsvalet väntande: eventuellt kan status **”Väntar på färdriktning”** visas, men ingen aktiv rutt eller sväng-/knappinstruktion. **Först när vagnen börjar röra sig med säkert, stabilt observerad riktning** väljer GPS:en automatiskt kortaste giltiga rutt från faktisk rälsposition och riktning och aktiverar vägledningen. Om färdriktning eller rätt registrerat spår inte kan avgöras ska GPS:en inte gissa. GPS:en markerar **Framme** så snart minecarten med säker färdhistorik **kommer in i den valda stationszonen längs en giltig verifierad färdväg**, **oavsett vilket av stationens registrerade spår** vagnen använder; ett fullständigt stopp eller låg hastighet krävs inte. När **Framme** väl har bekräftats ska texten ligga kvar även om vagnen fortsätter röra sig. **Vid all avstigning, även före ankomst, avslutas aktiv navigation omedelbart och navigations-HUD:en försvinner.** Ny resa kräver nytt destinationsval. En förbipassage **utanför zonen** eller på en färdväg som inte är verifierat giltig får inte utlösa ankomst. **Ett annat spår innanför samma stationszon är däremot inte ett 'fel spår'.**
 
 ### 5.3 Rödljus (redlight)
 
@@ -376,12 +376,13 @@ Arbetsflödet är:
 
 ### 7.3 Skapa en station
 
-1. Öppna **Railway GPS → Adminverktyg → Skapa station** i UI:t (`R` som standard), **utan kommandon**, och ange ett **serverunikt stationsnamn** (trimma och jämför skiftlägesoberoende, även mot andra dimensioner).
-2. Markera **första och andra hörnet** med det befintliga visuella tvåhörnsverktyget. Förhandsvisa en **liten 3D-stoppzon** som omsluter den verkliga rälsbit där vagnen ska kunna räknas som framme (vid spårslut eller längs genomgående räls).
-3. Identifiera och markera **rätt fysiska räls** inom zonen. Om den innehåller flera separata möjliga rälslinjer får ingen tvetydig stationsankomst publiceras; välj rätt räls eller justera hörnen.
-4. Kontrollera namn, zonstorlek, rälsanknytning och överlapp, och **bekräfta en gång** med administrations-/publiceringsrätt. Ogiltig eller tvetydig zon ska avvisas utan delvis sparande.
+**Huvudflöde i UI:t:** öppna **Railway GPS → Adminverktyg → Skapa station**.
 
-Stationer har alltså en **enkel tvåhörnsstoppzon**, men **inga plattformar, terminalobjekt eller stora stationsområden**. Samma station kan nås från båda **separat verifierade** färdriktningarna på vald räls.
+1. Markera **två motsatta hörn** så att den tänkta stationens räls täcks av en gemensam **3D-zon**.
+2. Ange ett **serverunikt stationsnamn**.
+3. Förhandsvisa området och spara. **All räls som ligger innanför zonen hör till stationen**; det får finnas flera parallella eller genomgående spår. Ingen dialog för att välja ett visst spår behövs.
+
+Validera att zonen är giltig och stationsnamnet unikt. **Flera rälslinjer i samma stationszon är uttryckligen tillåtet, inte tvetydighet eller fel.** Den befintliga fysiska ruttgrafens verifierade riktningar används fortfarande: en zon gör **inte** separata spår förbundna med varandra. Inga plattformar, terminalobjekt eller separata stationsdelar skapas.
 
 ### 7.4 Spela in fysisk räls
 
@@ -396,7 +397,7 @@ En användare med **inspelningsbehörighet** får via **Railway GPS → Inspelni
 /rgps survey cancel
 ```
 
-Vid inspelning registreras **fysisk räls utanför rödljusens zoner**. Inspelning som startar eller slutar mitt på en tidigare känd spårsträcka får matchas till just den rälsen utan att skapa extra platsobjekt eller duplicerad geometri. Vid zongränsen identifieras infartsporten, intern rälsgeometri ignoreras och nästa inspelade fysiska spår börjar vid utfartsporten. Observerade och entydigt verifierade infart→utfart-övergångar kan ingå i samma publikation. Stationer har sina enkla stoppunkter eller stoppzoner på rälsen.
+Vid inspelning registreras **fysisk räls utanför rödljusens zoner**. Inspelning som startar eller slutar mitt på en tidigare känd spårsträcka får matchas till just den rälsen utan att skapa extra platsobjekt eller duplicerad geometri. Vid zongränsen identifieras infartsporten, intern rälsgeometri ignoreras och nästa inspelade fysiska spår börjar vid utfartsporten. Observerade och entydigt verifierade infart→utfart-övergångar kan ingå i samma publikation. Stationer är enkla zoner som kan innehålla **flera spår**; stationszoner får inte behandlas som redlight-black-boxes eller tvinga val av ett enda stationsspår.
 
 **Beslutad publiceringsregel:** **UI-knappen Avsluta/publicera** (och motsvarande sekundära `/rgps survey finish`) analyserar och validerar **hela inspelningen** och publicerar alla giltiga tillskott **direkt, atomiskt och i en revision**, utan ett obligatoriskt separat `confirm`-/`discard`-steg. Vid kritiskt fel, osäker koppling som kräver manuell kontroll eller misslyckad skrivning publiceras **ingenting**; användaren får en begriplig felrapport. Survey-avbrytning får inte spara delvis data. Visuell förhandsvisning och diagnoser är frivilligt stöd, inte ett extra publiceringskrav. Administratörsåtgärder för senare redigering/återställning är en separat process.
 
@@ -601,7 +602,7 @@ Inspektions-/administrationsverktyg kräver respektive redan beslutade serverbeh
 
 Klienten ska kunna visa:
 
-- stationers enkla stoppunkter eller stoppzoner på rälsen;
+- stationernas enkla **tvåhörnszoner**, inklusive all registrerad räls som passerar inom dem;
 - rödljusens kontrollzoner;
 - inspelade spår som linjer ovanför rälsen;
 - riktningspilar;
@@ -663,7 +664,7 @@ välja eller **byta destination under pågående resa** eller avsluta aktiv/vän
 Behöriga användare får **synliga ingångar i samma Railway GPS-meny** till de **inspektions-, namn-, inspelnings- och administrationsverktyg** som deras separata serverrättigheter tillåter. En inspektör ska kunna söka, filtrera, markera och visa tekniska objekt; en namnredaktör ska kunna göra hela start/slut-förhandsvisa-bekräfta-flödet; en survey-användare ska ha start/status/finish/cancel; en administratör ska kunna skapa/redigera stationer och redlights, kontrollera portar/övergångar, godkänna spårpar och hantera säkra revisioner/import-/exportåtgärder **direkt i UI:t**. Administratörer får dessutom knappen **Adminverktyg**. Den öppnar redigeringsläget, som visar
 aktuella musåtgärder och vald geometri i en HUD, i samma anda som verktygspaletten i SimpleBlueprints. För
 **stationsstoppzoner och rödljusens kontrollzoner** markerar administratören **första och andra hörnet** med tvåhörnsverktyget; en tredimensionell kontur visas
-omedelbart. Stationen använder bara en liten stoppzon med tydlig koppling till vald räls, inte ett plattforms-/stationsområdessystem. `R` lämnar adminläget. Servern kontrollerar fortfarande behörighet och äger den sparade modellen.
+omedelbart. **Hela stationszonen gäller för alla rälslinjer inom dess gränser**; admin behöver inte välja en enda räls, skapa plattformar eller dela upp stationen. `R` lämnar adminläget. Servern kontrollerar fortfarande behörighet och äger den sparade modellen.
 
 Under inspelning kan geometrin visas live och in- och utträde ur kontrollzoner markeras. Giltig inspelning publiceras **direkt** vid `finish` efter full validering; inga obligatoriska granskningsutkast eller separat `survey confirm` krävs. Geometriska **spårparningsförslag** visas separat och måste bekräftas av behörig administratör innan parning kan sparas.
 
@@ -717,7 +718,7 @@ Valideringen ska bland annat hitta:
 - kontrollzoner utan portar;
 - portar utan anslutna spår;
 - övergångar som refererar till saknade passager;
-- stationers stoppunkter/stoppzoner utan säker koppling till rätt fysisk räls;
+- ogiltigt definierade stationszoner (t.ex. saknade hörn eller felaktig dimension), men **inte** att en stationszon innehåller flera fysiska rälslinjer;
 - **dubbelanvända stationsvisningsnamn** var som helst på servern (efter trimning, skiftlägesoberoende), även vid import eller namnbyte;
 - oavsiktligt överlappande kontrollzoner;
 - geometri som hoppar orimligt långt;
@@ -776,7 +777,7 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 ### Fas 1 – Domänmodell och lagring
 
 - Kontrollpunkter, sammansatta 3D-zoner och portar.
-- Enkla stationer som stoppunkter eller små stoppzoner direkt på rätt räls; inget plattformssystem.
+- Enkla stationer som **tvåhörnszoner med alla rälslinjer inom zonen inkluderade**; inget plattformssystem eller spårval per station.
 - Spårsektioner, fysiska spår, passager och övergångar.
 - Transaktionell, revisionshanterad lagring.
 - Full nätverksvalidering och JSON-export/import.
@@ -795,7 +796,7 @@ om den planerade utgången kräver ett byggnadsspecifikt knappval. I annat fall 
 - Markering av två hörn i världen.
 - Flera boxar per zon.
 - Förhandsvisning, mått och överlappsvarningar.
-- Stationers **små tvåhörnsstoppzoner** kopplade till korrekt fysisk räls och rödljusens kontrollzoner.
+- Stationers **tvåhörnszoner som kan omfatta flera rälslinjer** och rödljusens kontrollzoner.
 
 ### Fas 4 – Survey och fysisk nätbyggnad
 
@@ -860,7 +861,7 @@ En första komplett version av målarkitekturen ska demonstrera att:
 5. Centralbron kan täcka endast en del av spåret utan extra grafnod.
 6. Samma spår kan samtidigt visa Riksettan och Centralbron.
 7. Namnlösa spår kan ingå i resvägar utan att tekniska ID:n visas för spelaren.
-8. **Endast stationer** visas som destinationer. Stationen är ett enkelt stoppställe på rätt räls, vid spårslut eller genomgående spår; **inga plattformar krävs**. Ankomst bekräftas vid rätt stoppunkt även om vagnen rullar. **Framme** visas tills spelaren lämnar minecarten; då avslutas navigationen.
+8. **Endast stationer** visas som destinationer. Stationen är en **tvåhörnsmarkerad zon där all räls innanför räknas som stationen**, också när flera spår passerar. **Inga plattformar eller val av enskilt stationsspår krävs.** Ankomst bekräftas vid zonen längs verifierad giltig färdväg även om vagnen rullar. **Framme** visas tills spelaren lämnar minecarten; då avslutas navigationen.
 9. En omöjlig sväng i en rödljus används aldrig av ruttberäkningen.
 10. Automatisk vänster/höger/rakt-instruktion använder verklig in- och utgående geometri.
 11. En anpassad instruktion som `Välj knappen för Martyrön` har företräde.
@@ -884,13 +885,13 @@ En första komplett version av målarkitekturen ska demonstrera att:
 29. **Varje färdriktning på fysisk räls verifieras separat:** en inspelning åt ett håll ger inte automatiskt rätt att rutta åt andra hållet, men motsatt passage kan verifieras genom separat inspelning eller administratörsbeslut utan duplicerad geometri.
 30. **Ändrat/avstängt spår eller ny nätverksrevision** leder automatiskt till en ny **kortaste giltig rutt** om en finns. Finns ingen rutt visas ett tydligt fel utan fortsatt körvägledning på den ogiltiga rutten.
 31. **Namngivning sker enbart via markerad start och slut på registrerad räls plus ett namn**, med förhandsvisning och bekräftelse; någon separat namninspelning genom minecartkörning krävs inte.
-32. En station på genomgående räls kan nås **från båda separat verifierade färdriktningarna**, utan val av särskild ankomstriktning. En ovaliderad motsatt färdriktning är fortfarande otillåten.
+32. En station kan nås från **alla verifierade rälslinjer och färdriktningar** som når stationszonen, utan val av en särskild ankomstriktning eller ett stationsspår. En ovaliderad motsatt färdriktning är fortfarande otillåten.
 33. Aktiv, säkert matchad HUD visar **både kvarvarande spåravstånd till nästa rödljus och till destinationsstationen**. Saknas nästa rödljus visas ingen falsk distans; vid osäker position döljs opålitliga avstånd.
 34. **Vid första användningen visas enbart HUD**, utan inbyggd 3D-ruttmarkering. Spelaren kan valfritt slå på/av **enbart den planerade rutten** i Minecraft-världen; **valet sparas mellan resor och omstarter** och rutten uppdateras vid omplanering och döljs när navigationen avslutas, även utan JourneyMap.
 35. Efter att en spelare valt station i förväg eller klivit in i en **stillastående minecart** väntar GPS:en på **säkert observerad rörelse och riktning** innan någon aktiv rutt eller vägvals-/knappinstruktion visas; färdriktning får inte gissas.
 36. Vid namngivning av start-/slutmarkerad räls visas ett enkelt **Ja/Nej-val (förvalt Nej)** för att också namnge det **redan administratörsgodkända separata parade spåret**; annars namnges enbart markerad räls. Ingen automatisk parning eller namnspridning.
 37. När en annan **giltig rutt faktiskt ersätter** en pågående rutt visas kort den icke-blockerande texten **”Rutt omräknad”**, följd av nya instruktioner; om ingen väg finns visas i stället ett tydligt fel.
-38. En administratör skapar en enkel station genom att **markera två hörn för en liten 3D-stoppzon på rätt registrerad räls och ange unikt namn**. Tvetydiga zoner på flera skilda rälslinjer avvisas eller kräver rätt rälsval; ingen plattform behövs.
+38. En administratör skapar station genom att **markera två hörn för en 3D-zon och ange unikt namn**. **Flera rälslinjer inom zonen är fullt tillåtna och alla ingår automatiskt**, utan rälsval, plattformar eller andra stationsobjekt.
 39. Under aktiv resa kan spelaren **byta till en annan station**, och GPS:en ersätter då omedelbart resmålet och räknar om **kortaste giltiga rutt från aktuell säkert matchad position/riktning**, utan avstigning eller manuell återstart.
 40. Om ingen giltig väg finns **behålls valt resmål** och felet ”Ingen giltig väg till stationen” visas utan ogiltiga instruktioner. GPS:en försöker **automatiskt igen när relevant spårposition, riktning eller nätverksstatus ändras**, och återgår till vägledning om en giltig rutt åter blir möjlig. Ingen manuell retry-knapp eller ständig tick-omplanering.
 41. När servern publicerar en **fullständigt validerad revision där spelarens valda stations-ID har tagits bort**, avslutas aktiv navigering, rutt/3D-markering försvinner och spelaren ser **”Stationen har tagits bort”**. Ingen annan station väljs automatiskt och no-route-återförsök mot borttaget ID sker inte.
@@ -917,10 +918,10 @@ Följande **tekniska detaljer**, som inte får ändra de fastställda produktbes
 
 ## 21. Sammanfattning
 
-Railway GPS ska modellera verklig räls, inte bara namngivna linjer mellan punkter. Kontrollpunkter representeras av tydliga 3D-zoner. Stationer är enkla **små tvåhörnsstoppzoner på rälsen**, utan krav på plattformar. Rödljus har portar och verifierade övergångar. En spårsektion kan innehålla ett, två eller flera fysiska spår med separata riktningar och geometrier.
+Railway GPS ska modellera verklig räls, inte bara namngivna linjer mellan punkter. Kontrollpunkter representeras av tydliga 3D-zoner. Stationer är enkla **tvåhörnszoner där all räls inom gränserna hör till stationen**, utan krav på plattformar eller val av specifikt spår. Rödljus har portar och verifierade övergångar. En spårsektion kan innehålla ett, två eller flera fysiska spår med separata riktningar och geometrier.
 
 Namn är fristående lager. Riksettan kan löpa genom flera rödljus, Centralbron kan omfatta endast den stockmarkerade delen av två parallella spår och namnlösa anslutningar kan fortfarande användas fullt ut. En resa beräknas genom det gemensamma fysiska nätet och duplicerar inte spår för varje destinationskombination.
 
-**Det SimpleBlueprints-inspirerade Railway GPS-UI:t från commit `821880e` är huvudingången för både spelare och administratörer; kommandon är valfria sekundära alternativ.** Klienten ska kunna göra nätet synligt på begäran: zoner, spår, riktningar, övergångar, namn, aktiv resväg och valideringsfel kan inspekteras i världen, styrt av separat inspektionsbehörighet. **Vid första användning ser vanliga spelare endast navigations-HUD; därefter styr spelarens sparade val om även den planerade 3D-rutten syns** utan JourneyMap. HUD visar båda avstånden till nästa rödljus och stationen, och stationer kan nås från båda verifierade riktningar på rätt räls. Spelaren får förvälja **en station i sin aktuella dimension** före ombordstigning, navigeringen startar först med säkert observerad riktning i minecart på registrerad räls, och **kan byta till annan station i samma dimension under aktiv resa utan omstart**. Om den valda stationen **tas bort** stoppas navigationen med tydligt meddelande. Spelarens val att rita sin aktiva 3D-rutt sparas lokalt mellan resor och spelstarter, med Av som förstagångsvärde. Om ingen giltig rutt finns behålls vald station med felmeddelande och automatiskt nytt försök vid relevant förändring; all avstigning avslutar aktiv resa. Kortaste giltiga rutt väljs automatiskt, instruktionerna för ett rödljus syns vid infarten och under passage, och stationsnamn måste vara unika på hela servern. JourneyMap använder samma modell men förblir valfritt. **En fullständigt validerad survey publiceras direkt vid `finish`; inga obligatoriska granskningsutkast krävs.** Oparade parallella spår kan publiceras som separata spår, men spårparning kräver alltid administratörsbekräftelse. Spelarnas destinationer är enbart stationer. Ankomst kräver rätt räls/stoppzon men inte stillastående vagn; **Framme visas tills spelaren kliver ur minecarten**, varpå navigeringen avslutas automatiskt. Osäkert spår döljer alla sväng-/knappinstruktioner, survey får starta var som helst på rälsen med säker nätanslutning, och HUD visar högst en huvudled plus ett lokalt namn.
+**Det SimpleBlueprints-inspirerade Railway GPS-UI:t från commit `821880e` är huvudingången för både spelare och administratörer; kommandon är valfria sekundära alternativ.** Klienten ska kunna göra nätet synligt på begäran: zoner, spår, riktningar, övergångar, namn, aktiv resväg och valideringsfel kan inspekteras i världen, styrt av separat inspektionsbehörighet. **Vid första användning ser vanliga spelare endast navigations-HUD; därefter styr spelarens sparade val om även den planerade 3D-rutten syns** utan JourneyMap. HUD visar båda avstånden till nästa rödljus och stationen, och stationer kan nås från båda verifierade riktningar på rätt räls. Spelaren får förvälja **en station i sin aktuella dimension** före ombordstigning, navigeringen startar först med säkert observerad riktning i minecart på registrerad räls, och **kan byta till annan station i samma dimension under aktiv resa utan omstart**. Om den valda stationen **tas bort** stoppas navigationen med tydligt meddelande. Spelarens val att rita sin aktiva 3D-rutt sparas lokalt mellan resor och spelstarter, med Av som förstagångsvärde. Om ingen giltig rutt finns behålls vald station med felmeddelande och automatiskt nytt försök vid relevant förändring; all avstigning avslutar aktiv resa. Kortaste giltiga rutt väljs automatiskt, instruktionerna för ett rödljus syns vid infarten och under passage, och stationsnamn måste vara unika på hela servern. JourneyMap använder samma modell men förblir valfritt. **En fullständigt validerad survey publiceras direkt vid `finish`; inga obligatoriska granskningsutkast krävs.** Oparade parallella spår kan publiceras som separata spår, men spårparning kräver alltid administratörsbekräftelse. Spelarnas destinationer är enbart stationer. Ankomst kräver att minecarten når **den valda stationszonen längs verifierad färdväg**, på vilket som helst av spåren i zonen, men inte stillastående vagn; **Framme visas tills spelaren kliver ur minecarten**, varpå navigeringen avslutas automatiskt. Osäkert spår döljer alla sväng-/knappinstruktioner, survey får starta var som helst på rälsen med säker nätanslutning, och HUD visar högst en huvudled plus ett lokalt namn.
 
 Moddet förblir vägledande och icke-ingripande. Det berättar vad spelaren ska göra men styr aldrig minecart, knappar, redstone eller växlar.
