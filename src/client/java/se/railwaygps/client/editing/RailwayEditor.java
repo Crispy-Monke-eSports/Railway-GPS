@@ -26,12 +26,15 @@ public final class RailwayEditor {
 		AttackBlockCallback.EVENT.register((player, level, hand, position, direction) -> {
 			if (!enabled || !level.isClientSide()) return InteractionResult.PASS;
 			selectFirst(position);
-			return InteractionResult.SUCCESS;
+			// Consume locally: SUCCESS also forwards the attack packet to the server,
+			// which can destroy the selected rail instantly in Creative mode.
+			return InteractionResult.FAIL;
 		});
 		UseBlockCallback.EVENT.register((player, level, hand, hit) -> {
 			if (!enabled || !level.isClientSide()) return InteractionResult.PASS;
 			selectSecond(hit.getBlockPos());
-			return InteractionResult.SUCCESS;
+			// Do not forward vanilla use/place packets while selecting the second corner.
+			return InteractionResult.FAIL;
 		});
 		HudElementRegistry.addLast(HUD_ID, (graphics, deltaTracker) -> renderHud(graphics));
 	}
