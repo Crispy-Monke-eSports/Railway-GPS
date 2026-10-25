@@ -18,6 +18,8 @@ public final class RailwayNetworkStorage {
 	private final Path root;
 	private final Path file;
 	private final BeforeCommit beforeCommit;
+	/** Prevent an unloaded or corrupt saved network from being replaced by an empty revision. */
+	private boolean loadFailed;
 
 	public RailwayNetworkStorage(Path worldRoot) {
 		this(worldRoot, (temporary, destination) -> { });
@@ -36,12 +38,24 @@ public final class RailwayNetworkStorage {
 	public RailwayNetwork load() throws IOException, NetworkValidationException {
 		Files.createDirectories(root);
 		if (!Files.exists(file)) {
+			loadFailed = false;
 			return RailwayNetwork.EMPTY;
 		}
-		return RailwayNetworkJsonCodec.decode(Files.readString(file, StandardCharsets.UTF_8));
+		try {
+			RailwayNetwork loaded = RailwayNetworkJsonCodec.decode(Files.readString(file, StandardCharsets.UTF_8));
+			loadFailed = false;
+			return loaded;
+		} catch (IOException | NetworkValidationException exception) {
+			loadFailed = true;
+			throw exception;
+		}
 	}
 
 	public void save(RailwayNetwork network) throws IOException, NetworkValidationException {
+		if (loadFailed) {
+			throw new IOException("Railway GPS network was not loaded; repair or restore the original "
+					+ "network.json and reload before saving. The existing data has been preserved.");
+		}
 		String json = RailwayNetworkJsonCodec.encode(network);
 		Files.createDirectories(root);
 		Path temporary = Files.createTempFile(root, "network.", ".tmp");
