@@ -4,11 +4,12 @@ import se.railwaygps.model.NetworkValidationException;
 import se.railwaygps.railway.model.RailwayNetwork;
 
 import java.io.IOException;
+import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 
 /** Stores the authoritative physical railway model in one atomic world-local document. */
 public final class RailwayNetworkStorage {
@@ -16,10 +17,16 @@ public final class RailwayNetworkStorage {
 
 	private final Path root;
 	private final Path file;
+	private final BeforeCommit beforeCommit;
 
 	public RailwayNetworkStorage(Path worldRoot) {
+		this(worldRoot, (temporary, destination) -> { });
+	}
+
+	RailwayNetworkStorage(Path worldRoot, BeforeCommit beforeCommit) {
 		this.root = worldRoot.resolve("railwaygps");
 		this.file = root.resolve(FILE_NAME);
+		this.beforeCommit = beforeCommit;
 	}
 
 	public Path file() {
@@ -40,13 +47,18 @@ public final class RailwayNetworkStorage {
 		Path temporary = Files.createTempFile(root, "network.", ".tmp");
 		try {
 			Files.writeString(temporary, json, StandardCharsets.UTF_8);
-			try {
-				Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-			} catch (AtomicMoveNotSupportedException exception) {
-				Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING);
+			try (FileChannel channel = FileChannel.open(temporary, StandardOpenOption.WRITE)) {
+				channel.force(true);
 			}
+			beforeCommit.run(temporary, file);
+			Files.move(temporary, file, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
 		} finally {
 			Files.deleteIfExists(temporary);
 		}
+	}
+
+	@FunctionalInterface
+	interface BeforeCommit {
+		void run(Path temporary, Path destination) throws IOException;
 	}
 }

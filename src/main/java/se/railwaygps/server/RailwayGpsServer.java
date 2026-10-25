@@ -23,11 +23,13 @@ public final class RailwayGpsServer {
 	private final ZoneSelectionManager zoneSelections;
 	private final SurveyManager surveys;
 	private final MinecraftServer server;
-	private RailwayNetwork network = RailwayNetwork.EMPTY;
+	private final RailwayNetworkPublication publication;
 
 	private RailwayGpsServer(MinecraftServer server) {
 		this.server = server;
 		this.storage = new RailwayNetworkStorage(server.getWorldPath(LevelResource.ROOT));
+		this.publication = new RailwayNetworkPublication(RailwayNetwork.EMPTY, storage::save,
+				network -> RailwayGpsNetworking.broadcast(server, network));
 		this.labelSelections = new LabelSelectionManager(this);
 		this.zoneSelections = new ZoneSelectionManager();
 		this.surveys = new SurveyManager(this);
@@ -39,8 +41,8 @@ public final class RailwayGpsServer {
 		try {
 			state.reload();
 			RailwayGps.LOGGER.info("Loaded Railway GPS network revision {}: {} control points, {} tracks, {} labels",
-					state.network.revision(), state.network.controlPoints().size(), state.network.tracks().size(),
-					state.network.labels().size());
+					state.network().revision(), state.network().controlPoints().size(), state.network().tracks().size(),
+					state.network().labels().size());
 		} catch (IOException | NetworkValidationException exception) {
 			RailwayGps.LOGGER.error("Could not load Railway GPS network from {}. Keeping an empty network.",
 					state.storage.file(), exception);
@@ -61,7 +63,7 @@ public final class RailwayGpsServer {
 	}
 
 	public RailwayNetwork network() {
-		return network;
+		return publication.active();
 	}
 
 	public LabelSelectionManager labelSelections() {
@@ -78,15 +80,12 @@ public final class RailwayGpsServer {
 
 	public RailwayNetwork reload() throws IOException, NetworkValidationException {
 		RailwayNetwork candidate = storage.load();
-		this.network = candidate;
-		RailwayGpsNetworking.broadcast(server, candidate);
+		publication.activateLoaded(candidate);
 		return candidate;
 	}
 
 	public void save(RailwayNetwork updated) throws IOException, NetworkValidationException {
-		storage.save(updated);
-		this.network = updated;
-		RailwayGpsNetworking.broadcast(server, updated);
+		publication.publish(updated);
 	}
 
 }
