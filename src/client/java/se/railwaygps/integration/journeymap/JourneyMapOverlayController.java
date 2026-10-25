@@ -15,17 +15,21 @@ import net.minecraft.world.level.Level;
 import se.railwaygps.RailwayGps;
 import se.railwaygps.model.TrackPoint;
 import se.railwaygps.navigation.PhysicalRoutePlan;
+import se.railwaygps.navigation.ActiveRouteTracks;
+import se.railwaygps.navigation.RailLabelResolver;
+import se.railwaygps.navigation.StationDirectory;
 import se.railwaygps.railway.model.ControlPoint;
 import se.railwaygps.railway.model.PhysicalTrack;
 import se.railwaygps.railway.model.RailwayNetwork;
 import se.railwaygps.railway.model.TrackLabel;
+import se.railwaygps.railway.model.TrackDirection;
 import se.railwaygps.railway.model.ZoneBox;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
+import java.util.Map;
 
 final class JourneyMapOverlayController {
 	private static final int STATION_COLOR = 0x35C98A;
@@ -43,23 +47,20 @@ final class JourneyMapOverlayController {
 		this.api = api;
 	}
 
-	void refresh(RailwayNetwork network, Optional<PhysicalRoutePlan> activePlan, int currentLeg) {
+	void refresh(RailwayNetwork network, Optional<PhysicalRoutePlan> activePlan, int currentLeg,
+			String currentDimension) {
 		clear();
-		for (ControlPoint point : network.controlPoints().values()) {
+		for (ControlPoint point : StationDirectory.inDimension(network, currentDimension)) {
 			addControlPoint(point);
 		}
 
 		if (!api.playerAccepts(RailwayGps.MOD_ID, DisplayType.Polygon)) {
 			return;
 		}
-		Set<String> highlightedTracks = remainingTrackIds(activePlan, currentLeg);
-		for (PhysicalTrack track : network.tracks().values()) {
-			addPhysicalTrack(track, network, highlightedTracks.contains(track.id()));
-		}
-		for (ControlPoint point : network.controlPoints().values()) {
-			for (ZoneBox box : point.zone().boxes()) {
-				addZoneBox(point, box);
-			}
+		Map<String, TrackDirection> highlightedTracks = ActiveRouteTracks.remaining(activePlan, currentLeg);
+		for (Map.Entry<String, TrackDirection> active : highlightedTracks.entrySet()) {
+			PhysicalTrack track = network.tracks().get(active.getKey());
+			if (track != null) addPhysicalTrack(track, network, active.getValue());
 		}
 	}
 
@@ -78,7 +79,7 @@ final class JourneyMapOverlayController {
 				(first.min().y() + first.max().y()) / 2,
 				(first.min().z() + first.max().z()) / 2);
 		int color = point.kind() == ControlPoint.Kind.STATION ? STATION_COLOR : JUNCTION_COLOR;
-		addWaypoint("control-" + point.id(), point.name(), "Railway GPS " + point.kind().name().toLowerCase(),
+		addWaypoint("station-" + point.id(), point.name(), "Railway GPS station",
 				point.zone().dimension(), center, color);
 	}
 
@@ -91,7 +92,7 @@ final class JourneyMapOverlayController {
 					dimension,
 					false);
 			waypoint.setColor(color);
-			waypoint.setDescription(description + " (" + id + ")");
+			waypoint.setDescription(description);
 			waypoint.setShowDeviation(false);
 			api.addWaypoint(RailwayGps.MOD_ID, waypoint);
 		} catch (RuntimeException exception) {
@@ -99,27 +100,29 @@ final class JourneyMapOverlayController {
 		}
 	}
 
-	private void addPhysicalTrack(PhysicalTrack track, RailwayNetwork network, boolean highlighted) {
-		String labelNames = network.labels().values().stream()
-				.filter(label -> label.ranges().stream().anyMatch(range -> range.trackId().equals(track.id())))
-				.sorted(java.util.Comparator.comparingInt(TrackLabel::priority).reversed())
-				.map(TrackLabel::name).distinct().collect(java.util.stream.Collectors.joining(", "));
-		String title = labelNames.isEmpty() ? track.id() : labelNames + " (" + track.id() + ")";
-		int color = highlighted ? ACTIVE_ROUTE_COLOR : network.labels().values().stream()
+	private void addPhysicalTrack(PhysicalTrack track, RailwayNetwork network, TrackDirection direction) {
+		int color = network.labels().values().stream()
 				.filter(label -> label.color() != null
 						&& label.ranges().stream().anyMatch(range -> range.trackId().equals(track.id())))
 				.sorted(java.util.Comparator.comparingInt(TrackLabel::priority).reversed())
-				.map(TrackLabel::color).findFirst().orElse(PHYSICAL_TRACK_COLOR);
+				.map(TrackLabel::color).findFirst().orElse(ACTIVE_ROUTE_COLOR);
+		double traversed = 0;
 		for (int index = 1; index < track.points().size(); index++) {
+			TrackPoint first = track.points().get(index - 1);
+			TrackPoint second = track.points().get(index);
+			double segment = Math.sqrt(Math.pow(second.x() - first.x(), 2)
+					+ Math.pow(second.y() - first.y(), 2) + Math.pow(second.z() - first.z(), 2));
+			double midpoint = traversed + segment / 2;
+			String names = RailLabelResolver.at(network, track.id(), direction, midpoint).display();
+			String title = names.isEmpty() ? "Railway GPS active route" : names;
 			MapPolygon polygon = segmentPolygon(track.points().get(index - 1), track.points().get(index));
 			if (polygon == null) continue;
-			ShapeProperties shape = new ShapeProperties().setStrokeWidth(highlighted ? 2.5f : 1.75f).setStrokeColor(color)
-					.setStrokeOpacity(highlighted ? 1.0f : 0.9f).setFillColor(color)
-					.setFillOpacity(highlighted ? 0.55f : 0.32f);
+			ShapeProperties shape = new ShapeProperties().setStrokeWidth(2.5f).setStrokeColor(color)
+					.setStrokeOpacity(1.0f).setFillColor(color).setFillOpacity(0.55f);
 			PolygonOverlay overlay = new PolygonOverlay(RailwayGps.MOD_ID, dimension(track.dimension()), shape, polygon);
-			overlay.setOverlayGroupName(highlighted ? "Railway GPS active route" : "Railway GPS physical tracks")
-					.setTitle(title).setDisplayOrder(highlighted ? 2000 : 1200);
+			overlay.setOverlayGroupName("Railway GPS active route").setTitle(title).setDisplayOrder(2000);
 			show(overlay, "physical track", track.id());
+			traversed += segment;
 		}
 	}
 
@@ -172,13 +175,4 @@ final class JourneyMapOverlayController {
 		return ResourceKey.create(Registries.DIMENSION, Identifier.parse(id));
 	}
 
-	private static Set<String> remainingTrackIds(Optional<PhysicalRoutePlan> plan, int currentLeg) {
-		Set<String> ids = new HashSet<>();
-		plan.ifPresent(value -> {
-			for (int index = Math.max(0, currentLeg); index < value.legs().size(); index++) {
-				ids.add(value.legs().get(index).track().id());
-			}
-		});
-		return ids;
-	}
 }
