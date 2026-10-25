@@ -13,7 +13,9 @@ import se.railwaygps.network.TransitionTogglePayload;
 import se.railwaygps.network.TransitionInstructionPayload;
 import se.railwaygps.network.TransitionToggleResultPayload;
 import se.railwaygps.railway.model.ControlPoint;
-import se.railwaygps.railway.model.PhysicalTopology;
+import se.railwaygps.railway.model.PhysicalTrack;
+import se.railwaygps.railway.model.RailwayNetworkValidator;
+import se.railwaygps.railway.model.TraversalRef;
 import se.railwaygps.railway.model.TrackTransition;
 
 import java.util.ArrayList;
@@ -132,8 +134,8 @@ public final class RedlightScreen extends Screen {
 			row.visible = true;
 			ControlPoint point = ClientRailwayNetwork.network().controlPoints().get(transition.controlPointId());
 			Component label = Component.translatable("railwaygps.redlight.row", point.name(),
-					shortId(PhysicalTopology.endPortId(transition.incoming())),
-					shortId(PhysicalTopology.startPortId(transition.outgoing())),
+					trackLabel(transition.incoming(), true),
+					trackLabel(transition.outgoing(), false),
 					Component.translatable(transition.enabled() ? "railwaygps.redlight.on" : "railwaygps.redlight.off"));
 			row.setMessage(Component.literal(selected != null && selected.id().equals(transition.id()) ? "▶ " : "")
 					.append(label));
@@ -197,5 +199,16 @@ public final class RedlightScreen extends Screen {
 	}
 
 	@Override public boolean isPauseScreen() { return false; }
-	private static String shortId(String id) { return id.length() <= 18 ? id : id.substring(0, 15) + "…"; }
+	private static String trackLabel(TraversalRef traversal, boolean incoming) {
+		PhysicalTrack track = ClientRailwayNetwork.network().tracks().get(traversal.trackId());
+		if (track == null) return traversal.trackId();
+		String otherId = incoming ? RailwayNetworkValidator.startPoint(track, traversal.direction())
+				: RailwayNetworkValidator.endPoint(track, traversal.direction());
+		ControlPoint other = ClientRailwayNetwork.network().controlPoints().get(otherId);
+		String name = other == null ? otherId : other.name();
+		if (name.length() > 16) name = name.substring(0, 13) + "…";
+		String id = traversal.trackId();
+		return name + " [" + id.substring(Math.max(0, id.length() - 6)) + " "
+				+ traversal.direction().name().charAt(0) + "]";
+	}
 }
