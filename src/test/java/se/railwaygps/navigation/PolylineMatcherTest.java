@@ -17,6 +17,8 @@ class PolylineMatcherTest {
 		assertEquals(2.0, match.distanceToTrack(), 0.001);
 		assertEquals(8.0, match.distanceAlong(), 0.001);
 		assertEquals(20.0, match.trackLength(), 0.001);
+		assertEquals(1.0, match.movementAlignment(2, 0, 0), 0.001);
+		assertEquals(-1.0, match.movementAlignment(-2, 0, 0), 0.001);
 	}
 
 	@Test
@@ -27,5 +29,13 @@ class PolylineMatcherTest {
 
 		assertEquals(3.0, match.distanceToTrack(), 0.001);
 		assertEquals(0.0, match.distanceAlong(), 0.001);
+	}
+
+	@Test
+	void stationaryMovementNeverClaimsATrackDirection() {
+		PolylineMatcher.Match match = PolylineMatcher.nearest(
+				List.of(new TrackPoint(0, 0, 0), new TrackPoint(10, 0, 0)),
+				5.5, 0.5, 0.5).orElseThrow();
+		assertEquals(0, match.movementAlignment(0, 0, 0), 0.001);
 	}
 }

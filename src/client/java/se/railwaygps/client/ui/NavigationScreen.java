@@ -164,7 +164,11 @@ public final class NavigationScreen extends Screen {
 
 	private Component activeStatus() {
 		NavigationSnapshot snapshot = ClientNavigator.snapshot().orElse(null);
-		return snapshot == null ? null : Component.translatable("railwaygps.ui.active", snapshot.destination(),
+		if (snapshot == null) return null;
+		if (snapshot.status() == se.railwaygps.client.navigation.NavigationStatus.UNCERTAIN) {
+			return Component.translatable("railwaygps.ui.active_uncertain", snapshot.destination());
+		}
+		return Component.translatable("railwaygps.ui.active", snapshot.destination(),
 				Math.round(snapshot.distanceRemaining()));
 	}
 

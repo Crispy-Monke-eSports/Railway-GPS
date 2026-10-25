@@ -36,6 +36,7 @@ public final class NavigationHud {
 			graphics.text(client.font, Component.translatable("railwaygps.hud.title", snapshot.destination()),
 					x + 10, y + 8, 0xFFFFFFFF, true);
 			graphics.text(client.font, snapshot.instruction(), x + 10, y + 24, statusColor(snapshot.status()), true);
+			if (snapshot.status() == NavigationStatus.UNCERTAIN) return;
 			graphics.text(client.font, Component.translatable("railwaygps.hud.next",
 							snapshot.nextNode(), Math.round(snapshot.distanceToNext())),
 					x + 10, y + 40, 0xFFE2E8EC, true);

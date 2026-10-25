@@ -15,6 +15,9 @@ public final class PolylineMatcher {
 		}
 		double bestDistanceSquared = Double.POSITIVE_INFINITY;
 		double bestAlong = 0;
+		double bestTangentX = 0;
+		double bestTangentY = 0;
+		double bestTangentZ = 0;
 		double traversed = 0;
 		double total = polylineLength(points);
 
@@ -41,10 +44,14 @@ public final class PolylineMatcher {
 			if (distanceSquared < bestDistanceSquared) {
 				bestDistanceSquared = distanceSquared;
 				bestAlong = traversed + t * segmentLength;
+				bestTangentX = dx / segmentLength;
+				bestTangentY = dy / segmentLength;
+				bestTangentZ = dz / segmentLength;
 			}
 			traversed += segmentLength;
 		}
-		return Optional.of(new Match(Math.sqrt(bestDistanceSquared), bestAlong, total));
+		return Optional.of(new Match(Math.sqrt(bestDistanceSquared), bestAlong, total,
+				bestTangentX, bestTangentY, bestTangentZ));
 	}
 
 	private static double polylineLength(List<TrackPoint> points) {
@@ -76,6 +83,11 @@ public final class PolylineMatcher {
 		return value * value;
 	}
 
-	public record Match(double distanceToTrack, double distanceAlong, double trackLength) {
+	public record Match(double distanceToTrack, double distanceAlong, double trackLength,
+			double tangentX, double tangentY, double tangentZ) {
+		public double movementAlignment(double x, double y, double z) {
+			double length = Math.sqrt(x * x + y * y + z * z);
+			return length < 0.0001 ? 0 : (x * tangentX + y * tangentY + z * tangentZ) / length;
+		}
 	}
 }

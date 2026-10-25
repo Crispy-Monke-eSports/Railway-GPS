@@ -3,6 +3,7 @@ package se.railwaygps.client.navigation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.entity.vehicle.minecart.AbstractMinecart;
 import net.minecraft.world.phys.Vec3;
 import se.railwaygps.client.ClientRailwayNetwork;
 import se.railwaygps.model.TrackPoint;
@@ -11,6 +12,7 @@ import se.railwaygps.navigation.PhysicalInstructionResolver;
 import se.railwaygps.navigation.PhysicalRouteLeg;
 import se.railwaygps.navigation.PhysicalRoutePlan;
 import se.railwaygps.navigation.PhysicalRoutePlanner;
+import se.railwaygps.navigation.RailMatchConfidence;
 import se.railwaygps.navigation.StartInstructionResolver;
 import se.railwaygps.railway.model.ControlPoint;
 import se.railwaygps.railway.model.PhysicalTrack;
@@ -29,11 +31,16 @@ public final class ClientNavigator {
 	private static final double TRACK_MATCH_DISTANCE = 6.0;
 	private static final double START_TRACK_MATCH_DISTANCE = 2.0;
 	private static final double REDLIGHT_APPROACH_DISTANCE = 32.0;
+	private static final double MINIMUM_DIRECTION_SPEED = 0.02;
+	private static final double MINIMUM_DIRECTION_ALIGNMENT = 0.65;
 	private static PhysicalRoutePlan plan;
 	private static int currentLeg;
 	private static String networkVersion = "";
 	private static NavigationSnapshot snapshot;
 	private static long revision;
+	private static String pendingDestination;
+	private static int stableMovementTicks;
+	private static boolean activeWhileMounted;
 	private static final Map<String, ZoneOccupancyTracker> zoneTrackers = new HashMap<>();
 
 	private ClientNavigator() {
@@ -46,23 +53,26 @@ public final class ClientNavigator {
 				|| !requested.zone().dimension().equals(player.level().dimension().identifier().toString())) {
 			return new StartResult(false, Component.translatable("railwaygps.nav.start.unknown_destination", destination));
 		}
-		boolean onRegisteredTrack = isOnRegisteredTrack(player, network);
-		Optional<PhysicalRoutePlan> calculated = planFromCurrentTrack(player, network, destination);
-		Optional<String> fallbackNode = Optional.empty();
-		if (calculated.isEmpty() && !onRegisteredTrack) {
-			fallbackNode = nearestNode(player, network);
-			calculated = fallbackNode.flatMap(node -> PhysicalRoutePlanner.shortestPath(network, node, destination));
+		pendingDestination = destination;
+		plan = null;
+		currentLeg = 0;
+		stableMovementTicks = 0;
+		boolean mounted = player.getVehicle() instanceof AbstractMinecart;
+		if (!mounted || player.getVehicle().getDeltaMovement().length() < MINIMUM_DIRECTION_SPEED) {
+			snapshot = uncertain(network, destination);
+			revision++;
+			return new StartResult(true, Component.translatable("railwaygps.nav.start.pending", name(network, destination)));
 		}
+		Optional<PhysicalRoutePlan> calculated = planFromCurrentTrack(player, network, destination);
 		if (calculated.isEmpty()) {
-			return onRegisteredTrack
-					? new StartResult(false, Component.translatable("railwaygps.nav.start.no_route_from_track",
-							name(network, destination)))
-					: fallbackNode.isPresent()
-					? new StartResult(false, Component.translatable("railwaygps.nav.start.no_route",
-							name(network, fallbackNode.get()), name(network, destination)))
-					: new StartResult(false, Component.translatable("railwaygps.nav.start.not_near_track"));
+			snapshot = uncertain(network, destination);
+			revision++;
+			return new StartResult(true, Component.translatable("railwaygps.nav.start.pending",
+					name(network, destination)));
 		}
 		plan = calculated.get();
+		pendingDestination = null;
+		activeWhileMounted = true;
 		currentLeg = 0;
 		zoneTrackers.clear();
 		networkVersion = ClientRailwayNetwork.version();
@@ -72,11 +82,14 @@ public final class ClientNavigator {
 	}
 
 	public static void stop() {
-		boolean wasActive = plan != null;
+		boolean wasActive = plan != null || pendingDestination != null || snapshot != null;
 		plan = null;
+		pendingDestination = null;
 		snapshot = null;
 		currentLeg = 0;
 		zoneTrackers.clear();
+		stableMovementTicks = 0;
+		activeWhileMounted = false;
 		if (wasActive) {
 			revision++;
 		}
@@ -99,9 +112,32 @@ public final class ClientNavigator {
 	}
 
 	public static void tick(Minecraft client) {
-		if (plan == null || client.player == null) {
+		if (client.player == null) {
 			return;
 		}
+		boolean mounted = client.player.getVehicle() instanceof AbstractMinecart;
+		if (plan != null && activeWhileMounted && !mounted) { stop(); return; }
+		if (plan == null && pendingDestination != null) {
+			if (!mounted) return;
+			if (client.player.getVehicle().getDeltaMovement().length() < MINIMUM_DIRECTION_SPEED) {
+				stableMovementTicks = 0;
+				return;
+			}
+			if (++stableMovementTicks < 3) return;
+			Optional<PhysicalRoutePlan> pending = planFromCurrentTrack(client.player,
+					ClientRailwayNetwork.network(), pendingDestination);
+			if (pending.isPresent()) {
+				plan = pending.get();
+				pendingDestination = null;
+				currentLeg = 0;
+				activeWhileMounted = true;
+				networkVersion = ClientRailwayNetwork.version();
+				revision++;
+				update(client.player);
+			} else stableMovementTicks = 0;
+			return;
+		}
+		if (plan == null) return;
 		if (!networkVersion.equals(ClientRailwayNetwork.version())) {
 			replanAfterNetworkChange(client.player);
 		}
@@ -131,7 +167,11 @@ public final class ClientNavigator {
 		List<TrackPoint> points = leg.points();
 		Vec3 position = player.position();
 		PolylineMatcher.Match match = PolylineMatcher.nearest(points, position.x(), position.y(), position.z()).orElse(null);
-		if (match == null) {
+		Vec3 movement = player.getVehicle() == null ? Vec3.ZERO : player.getVehicle().getDeltaMovement();
+		if (match == null || movement.length() >= MINIMUM_DIRECTION_SPEED
+				&& match.movementAlignment(movement.x, movement.y, movement.z) < MINIMUM_DIRECTION_ALIGNMENT
+				|| match != null && hasCompetingTrack(network, leg.track().id(), leg.track().dimension(), position, movement,
+						match.distanceToTrack())) {
 			snapshot = uncertain(network, leg);
 			return;
 		}
@@ -169,7 +209,13 @@ public final class ClientNavigator {
 	private static NavigationSnapshot uncertain(RailwayNetwork network, PhysicalRouteLeg leg) {
 		return new NavigationSnapshot(name(network, plan.destination()), name(network, leg.to()),
 				Component.translatable("railwaygps.instruction.uncertain"),
-				leg.track().length(), remainingPlannedDistance(), plan.legs().size() - currentLeg - 1, NavigationStatus.UNCERTAIN);
+				Double.NaN, Double.NaN, 0, NavigationStatus.UNCERTAIN);
+	}
+
+	private static NavigationSnapshot uncertain(RailwayNetwork network, String destination) {
+		return new NavigationSnapshot(name(network, destination), name(network, destination),
+				Component.translatable("railwaygps.instruction.uncertain"),
+				Double.NaN, Double.NaN, 0, NavigationStatus.UNCERTAIN);
 	}
 
 	private static Component instruction(LocalPlayer player, RailwayNetwork network, PhysicalRouteLeg leg,
@@ -194,14 +240,6 @@ public final class ClientNavigator {
 			case BACK -> Component.translatable("railwaygps.instruction.back");
 			case UNKNOWN -> Component.translatable("railwaygps.instruction.continue", name(network, leg.to()));
 		};
-	}
-
-	private static double remainingPlannedDistance() {
-		double distance = 0;
-		for (int index = currentLeg; index < plan.legs().size(); index++) {
-			distance += plan.legs().get(index).track().length();
-		}
-		return distance;
 	}
 
 	private static void replanAfterNetworkChange(LocalPlayer player) {
@@ -235,6 +273,8 @@ public final class ClientNavigator {
 			LocalPlayer player, RailwayNetwork network, String destination) {
 		String dimension = player.level().dimension().identifier().toString();
 		Vec3 position = player.getVehicle() != null ? player.getVehicle().position() : player.position();
+		Vec3 movement = player.getVehicle() != null ? player.getVehicle().getDeltaMovement() : Vec3.ZERO;
+		if (movement.length() < MINIMUM_DIRECTION_SPEED) return Optional.empty();
 		List<StartingRoute> candidates = network.tracks().values().stream()
 				.filter(track -> track.status() == PhysicalTrack.Status.VERIFIED)
 				.filter(track -> dimension.equals(track.dimension()))
@@ -242,6 +282,8 @@ public final class ClientNavigator {
 					PhysicalRouteLeg leg = new PhysicalRouteLeg(track, direction);
 					PolylineMatcher.Match match = PolylineMatcher.nearest(leg.points(),
 							position.x(), position.y(), position.z()).orElse(null);
+					if (match != null && match.movementAlignment(movement.x, movement.y, movement.z)
+							< MINIMUM_DIRECTION_ALIGNMENT) match = null;
 					double geometryRemaining = match == null ? track.length()
 							: Math.max(0, match.trackLength() - match.distanceAlong())
 							* track.length() / Math.max(0.001, match.trackLength());
@@ -253,12 +295,34 @@ public final class ClientNavigator {
 				.toList();
 		double nearest = candidates.stream().mapToDouble(candidate -> candidate.match.distanceToTrack())
 				.min().orElse(Double.POSITIVE_INFINITY);
-		return candidates.stream()
+		List<StartingRoute> eligible = candidates.stream()
 				.filter(candidate -> candidate.plan != null && nearest <= START_TRACK_MATCH_DISTANCE
 						&& candidate.match.distanceToTrack() <= nearest + 0.15)
+				.toList();
+		Optional<String> uniqueTrack = RailMatchConfidence.uniqueTrack(eligible.stream()
+				.map(candidate -> new RailMatchConfidence.Candidate(
+						candidate.plan.legs().getFirst().track().id(), candidate.match.distanceToTrack(), true))
+				.toList(), START_TRACK_MATCH_DISTANCE, 0.15);
+		if (uniqueTrack.isEmpty()) return Optional.empty();
+		return eligible.stream()
+				.filter(candidate -> candidate.plan.legs().getFirst().track().id().equals(uniqueTrack.get()))
 				.min(Comparator.comparingDouble((StartingRoute candidate) -> candidate.match.distanceToTrack())
 						.thenComparingDouble(candidate -> candidate.plan.distance()))
 				.map(StartingRoute::plan);
+	}
+
+	private static boolean hasCompetingTrack(RailwayNetwork network, String currentTrackId, String dimension, Vec3 position,
+			Vec3 movement, double currentDistance) {
+		return network.tracks().values().stream()
+				.filter(track -> track.status() == PhysicalTrack.Status.VERIFIED
+						&& track.dimension().equals(dimension) && !track.id().equals(currentTrackId))
+				.flatMap(track -> track.directions().stream().map(direction -> PolylineMatcher.nearest(
+						direction == se.railwaygps.railway.model.TrackDirection.FORWARD
+								? track.points() : track.points().reversed(),
+						position.x(), position.y(), position.z()).orElse(null)))
+				.anyMatch(candidate -> candidate != null && candidate.distanceToTrack() <= currentDistance + 0.15
+						&& (movement.length() < MINIMUM_DIRECTION_SPEED
+						|| candidate.movementAlignment(movement.x, movement.y, movement.z) >= MINIMUM_DIRECTION_ALIGNMENT));
 	}
 
 	private static boolean isOnRegisteredTrack(LocalPlayer player, RailwayNetwork network) {
