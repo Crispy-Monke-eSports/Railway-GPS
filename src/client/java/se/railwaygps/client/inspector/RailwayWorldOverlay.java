@@ -9,7 +9,10 @@ import se.railwaygps.client.ClientRailwayNetwork;
 import se.railwaygps.client.navigation.ClientNavigator;
 import se.railwaygps.model.TrackPoint;
 import se.railwaygps.railway.model.PhysicalTrack;
+import se.railwaygps.railway.model.PhysicalTopology;
+import se.railwaygps.railway.model.TrackDirection;
 import se.railwaygps.railway.model.TrackLabel;
+import se.railwaygps.railway.model.TrackPort;
 import se.railwaygps.railway.model.ZoneBox;
 
 import java.util.ArrayList;
@@ -84,6 +87,16 @@ public final class RailwayWorldOverlay {
 						second.x() + 0.5, second.y() + 0.2, second.z() + 0.5, color,
 						highlighted ? 4f : activeTracks.contains(track.id()) ? 3f : 2f));
 			}
+			for (TrackDirection direction : track.directions()) addDirectionArrow(lines, track, direction, color);
+		}
+		for (TrackPort port : PhysicalTopology.from(ClientRailwayNetwork.network()).ports()) {
+			PhysicalTrack track = ClientRailwayNetwork.network().tracks().get(port.trackId());
+			if (track == null || !track.dimension().equals(dimension) || !near(camera, port.position())) continue;
+			double x = port.position().x() + 0.5;
+			double y = port.position().y() + 0.35;
+			double z = port.position().z() + 0.5;
+			lines.add(new Line(x - 0.22, y, z, x + 0.22, y, z, 0xFFF2C94C, 3f));
+			lines.add(new Line(x, y, z - 0.22, x, y, z + 0.22, 0xFFF2C94C, 3f));
 		}
 		if (lines.isEmpty()) return;
 
@@ -109,6 +122,26 @@ public final class RailwayWorldOverlay {
 				.sorted(Comparator.comparingInt(TrackLabel::priority).reversed())
 				.map(label -> 0xD9000000 | label.color() & 0xFFFFFF)
 				.findFirst().orElse(TRACK_COLOR);
+	}
+
+	private static void addDirectionArrow(List<Line> lines, PhysicalTrack track, TrackDirection direction, int color) {
+		if (track.points().size() < 2) return;
+		TrackPoint from = direction == TrackDirection.FORWARD ? track.points().getFirst() : track.points().getLast();
+		TrackPoint to = direction == TrackDirection.FORWARD ? track.points().get(1)
+				: track.points().get(track.points().size() - 2);
+		double dx = to.x() - from.x();
+		double dz = to.z() - from.z();
+		double length = Math.sqrt(dx * dx + dz * dz);
+		if (length < 0.001) return;
+		dx /= length;
+		dz /= length;
+		double tipX = from.x() + 0.5 + dx * 0.8;
+		double tipY = from.y() + 0.42;
+		double tipZ = from.z() + 0.5 + dz * 0.8;
+		double backX = tipX - dx * 0.35;
+		double backZ = tipZ - dz * 0.35;
+		lines.add(new Line(tipX, tipY, tipZ, backX - dz * 0.22, tipY, backZ + dx * 0.22, color, 3f));
+		lines.add(new Line(tipX, tipY, tipZ, backX + dz * 0.22, tipY, backZ - dx * 0.22, color, 3f));
 	}
 
 	private static void addBox(List<Line> lines, ZoneBox box, int color) {

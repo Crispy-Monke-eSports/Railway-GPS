@@ -112,6 +112,13 @@ public final class ClientNavigator {
 			return;
 		}
 		RailwayNetwork network = ClientRailwayNetwork.network();
+		if (confirmedInsideControlPoint(player, network, plan.destination())) {
+			currentLeg = plan.legs().size();
+			snapshot = new NavigationSnapshot(name(network, plan.destination()), name(network, plan.destination()),
+					Component.translatable("railwaygps.instruction.arrived"),
+					0, 0, 0, NavigationStatus.ARRIVED);
+			return;
+		}
 		if (currentLeg >= plan.legs().size()) {
 			snapshot = new NavigationSnapshot(name(network, plan.destination()), name(network, plan.destination()),
 					Component.translatable("railwaygps.instruction.arrived"),
@@ -230,8 +237,11 @@ public final class ClientNavigator {
 					PhysicalRouteLeg leg = new PhysicalRouteLeg(track, direction);
 					PolylineMatcher.Match match = PolylineMatcher.nearest(leg.points(),
 							position.x(), position.y(), position.z()).orElse(null);
-					Optional<PhysicalRoutePlan> route = PhysicalRoutePlanner.continueFrom(network,
-							new TraversalRef(track.id(), direction), destination);
+					double geometryRemaining = match == null ? track.length()
+							: Math.max(0, match.trackLength() - match.distanceAlong())
+							* track.length() / Math.max(0.001, match.trackLength());
+					Optional<PhysicalRoutePlan> route = PhysicalRoutePlanner.continueFromPosition(network,
+							new TraversalRef(track.id(), direction), destination, geometryRemaining);
 					return new StartingRoute(match, route.orElse(null));
 				}))
 				.filter(candidate -> candidate.match != null)
@@ -242,7 +252,7 @@ public final class ClientNavigator {
 				.filter(candidate -> candidate.plan != null && nearest <= START_TRACK_MATCH_DISTANCE
 						&& candidate.match.distanceToTrack() <= nearest + 0.15)
 				.min(Comparator.comparingDouble((StartingRoute candidate) -> candidate.match.distanceToTrack())
-						.thenComparingDouble(StartingRoute::remainingDistance))
+						.thenComparingDouble(candidate -> candidate.plan.distance()))
 				.map(StartingRoute::plan);
 	}
 
@@ -286,14 +296,7 @@ public final class ClientNavigator {
 		return point == null ? id : point.name();
 	}
 
-	private record StartingRoute(PolylineMatcher.Match match, PhysicalRoutePlan plan) {
-		private double remainingDistance() {
-			double currentLength = plan.legs().getFirst().track().length();
-			double geometryRemaining = match.trackLength() - match.distanceAlong();
-			return plan.distance() - currentLength
-					+ geometryRemaining * currentLength / Math.max(0.001, match.trackLength());
-		}
-	}
+	private record StartingRoute(PolylineMatcher.Match match, PhysicalRoutePlan plan) { }
 
 	public record StartResult(boolean success, Component message) {
 	}

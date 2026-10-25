@@ -17,6 +17,44 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PhysicalRoutePlannerTest {
 	@Test
+	void reachesAStationAroundAnyVerifiedThroughTrackWithoutInventingAConnection() throws Exception {
+		RailwayNetwork network = baseNetwork();
+		network = RailwayNetworkEditor.addControlPoint(network, "mid", "Mid", ControlPoint.Kind.STATION,
+				new Zone("minecraft:overworld", List.of(new ZoneBox(point(4), point(6))), 1));
+
+		PhysicalRoutePlan plan = PhysicalRoutePlanner.shortestPath(network, "a", "mid").orElseThrow();
+
+		assertEquals(List.of("a_b"), plan.legs().stream().map(leg -> leg.track().id()).toList());
+		assertEquals(4, plan.distance(), 0.0001);
+		assertTrue(network.transitions().isEmpty());
+		assertTrue(PhysicalRoutePlanner.shortestPath(network, "b", "mid").isEmpty());
+	}
+
+	@Test
+	void partwayStartCannotReachAStationThatIsBehindItsPermittedDirection() throws Exception {
+		RailwayNetwork network = baseNetwork();
+		network = RailwayNetworkEditor.addControlPoint(network, "mid", "Mid", ControlPoint.Kind.STATION,
+				new Zone("minecraft:overworld", List.of(new ZoneBox(point(4), point(6))), 1));
+
+		assertTrue(PhysicalRoutePlanner.continueFromPosition(network,
+				new TraversalRef("a_b", TrackDirection.FORWARD), "mid", 2).isEmpty());
+	}
+
+	@Test
+	void partwayStartChargesOnlyRemainingDistanceOnFirstRail() throws Exception {
+		RailwayNetwork network = baseNetwork();
+		network = RailwayNetworkEditor.addTransition(network, "through_b_partway", "b",
+				new TraversalRef("a_b", TrackDirection.FORWARD),
+				new TraversalRef("b_c", TrackDirection.FORWARD), null);
+		PhysicalRoutePlan full = PhysicalRoutePlanner.continueFrom(network,
+				new TraversalRef("a_b", TrackDirection.FORWARD), "c").orElseThrow();
+		PhysicalRoutePlan partway = PhysicalRoutePlanner.continueFromPosition(network,
+				new TraversalRef("a_b", TrackDirection.FORWARD), "c", 2).orElseThrow();
+
+		assertEquals(full.distance() - 8, partway.distance(), 0.0001);
+		assertEquals(full.legs(), partway.legs());
+	}
+	@Test
 	void onlyUsesExplicitlyEnabledTransitions() throws Exception {
 		RailwayNetwork network = baseNetwork();
 		assertTrue(PhysicalRoutePlanner.shortestPath(network, "a", "c").isEmpty());
