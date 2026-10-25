@@ -22,7 +22,11 @@ import java.util.List;
 
 /** Per-passage controls for redlights, with the exterior boundary ports visible in-world. */
 public final class RedlightScreen extends Screen {
+	private static final int PAGE_SIZE = 6;
 	private final List<Button> rows = new ArrayList<>();
+	private int page;
+	private Button previousPage;
+	private Button nextPage;
 	private List<TrackTransition> transitions = List.of();
 	private TrackTransition selected;
 	private Button toggle;
@@ -41,11 +45,23 @@ public final class RedlightScreen extends Screen {
 		if (!overlayWasEnabled) RailwayWorldOverlay.toggle();
 		int panelWidth = Math.min(540, width - 32);
 		int left = (width - panelWidth) / 2;
-		for (int slot = 0; slot < 6; slot++) {
+		for (int slot = 0; slot < PAGE_SIZE; slot++) {
 			int index = slot;
 			rows.add(addRenderableWidget(Button.builder(Component.empty(), button -> select(index))
 					.bounds(left + 16, 62 + slot * 24, panelWidth - 32, 20).build()));
 		}
+		previousPage = addRenderableWidget(Button.builder(Component.literal("‹"), button -> {
+			if (page > 0) {
+				page--;
+				refresh();
+			}
+		}).bounds(left + 16, 210, 30, 20).build());
+		nextPage = addRenderableWidget(Button.builder(Component.literal("›"), button -> {
+			if ((page + 1) * PAGE_SIZE < transitions.size()) {
+				page++;
+				refresh();
+			}
+		}).bounds(left + panelWidth - 46, 210, 30, 20).build());
 		toggle = addRenderableWidget(Button.builder(Component.empty(), button -> toggle())
 				.bounds(left + 16, height - 42, 170, 20).build());
 		instruction = new EditBox(font, left + 16, height - 92, panelWidth - 32, 20,
@@ -80,12 +96,22 @@ public final class RedlightScreen extends Screen {
 					return point != null && point.isRedlight();
 				})
 				.sorted(Comparator.comparing(TrackTransition::controlPointId).thenComparing(TrackTransition::id))
-				.limit(rows.size()).toList();
-		if (selected != null) selected = ClientRailwayNetwork.network().transitions().get(selected.id());
+				.toList();
+		page = Math.min(page, Math.max(0, (transitions.size() - 1) / PAGE_SIZE));
+		if (selected != null) {
+			String selectedId = selected.id();
+			selected = transitions.stream().filter(candidate -> candidate.id().equals(selectedId))
+					.findFirst().orElse(null);
+			if (selected == null) {
+				instruction.setValue("");
+				RailwayWorldOverlay.setHighlightedTrackPair(null, null);
+			}
+		}
 		for (int index = 0; index < rows.size(); index++) {
 			Button row = rows.get(index);
-			if (index >= transitions.size()) { row.visible = false; continue; }
-			TrackTransition transition = transitions.get(index);
+			int absoluteIndex = page * PAGE_SIZE + index;
+			if (absoluteIndex >= transitions.size()) { row.visible = false; continue; }
+			TrackTransition transition = transitions.get(absoluteIndex);
 			row.visible = true;
 			ControlPoint point = ClientRailwayNetwork.network().controlPoints().get(transition.controlPointId());
 			row.setMessage(Component.translatable("railwaygps.redlight.row", point.name(),
@@ -93,6 +119,8 @@ public final class RedlightScreen extends Screen {
 					shortId(PhysicalTopology.startPortId(transition.outgoing())),
 					Component.translatable(transition.enabled() ? "railwaygps.redlight.on" : "railwaygps.redlight.off")));
 		}
+		previousPage.active = page > 0;
+		nextPage.active = (page + 1) * PAGE_SIZE < transitions.size();
 		toggle.active = selected != null;
 		saveInstruction.active = selected != null;
 		instruction.active = selected != null;
@@ -101,8 +129,9 @@ public final class RedlightScreen extends Screen {
 	}
 
 	private void select(int index) {
-		if (index >= transitions.size()) return;
-		selected = transitions.get(index);
+		int absoluteIndex = page * PAGE_SIZE + index;
+		if (absoluteIndex >= transitions.size()) return;
+		selected = transitions.get(absoluteIndex);
 		instruction.setValue(selected.instruction() == null ? "" : selected.instruction());
 		RailwayWorldOverlay.setHighlightedTrackPair(selected.incoming().trackId(), selected.outgoing().trackId());
 		refresh();
@@ -138,6 +167,8 @@ public final class RedlightScreen extends Screen {
 		graphics.centeredText(font, Component.translatable("railwaygps.redlight.subtitle"), width / 2, 38, 0xFF9EABB3);
 		if (transitions.isEmpty()) graphics.centeredText(font, Component.translatable("railwaygps.redlight.empty"),
 				width / 2, 72, 0xFF9EABB3);
+		else graphics.centeredText(font, Component.translatable("railwaygps.redlight.page", page + 1,
+				(transitions.size() + PAGE_SIZE - 1) / PAGE_SIZE), width / 2, 215, 0xFF9EABB3);
 		graphics.centeredText(font, feedback, width / 2, height - 106, 0xFF9EABB3);
 	}
 
